@@ -20,9 +20,9 @@ import asyncio
 
 def FetchJsonFromSJJ():
     cityNumbers = {
-        # "上海": "310100",
-        "北京": "110100",
-        # "天津": "120100",
+        # "上海": "310100",       done
+        # "北京": "110100",      done
+        "天津": "120100",
         # "哈尔滨":"230100",
         # "南京":"320100",
         # "广州":"440100",
@@ -35,7 +35,7 @@ def FetchJsonFromSJJ():
 
     for cityName, cityNum in cityNumbers.items():
         # 20页
-        for page in range(0, 4):
+        for page in range(0, 5):
             postBody = {"attributes": [f"{cityNum}"],
                         "cityId": f"{cityNum}",
                         "searchText": "",
@@ -72,17 +72,18 @@ def FetchJsonFromSJJ():
                     filePath = f"./data/json/{cityName}"
                     fileName = f"{i.get('name') + '@' + i.get('id') + '.json'}"
                     fileUrl = changeExt(i.get('meta').get('image'))
+
                     if not os.path.exists(filePath):
                         os.makedirs(filePath)
-                    # 记录原始id
-                    downloadJson(fileUrl, os.path.join(filePath, fileName))
                     if not os.path.exists('./history'):
                         os.makedirs('./history')
 
-                    if not checkStrInFile(i.get("id"), f'./history/originid.txt'):
+                    if not checkStrInFile(i.get("name"), f'./history/originid.txt'):
+                        downloadJson(fileUrl, os.path.join(filePath, fileName))
                         with open(f'./history/originid.txt', 'a+') as f:
-                            f.write(i.get("id") + '\n')
-
+                            # origin文件里每行存两个内容,id和 name,如果name冲突,同样不保存id
+                            f.write(i.get("id") + '\t' + i.get("name") + '\n')
+                            # id    name的格式
             except JSONDecodeError as e:
                 print(e)
                 sys.exit(1)
@@ -110,12 +111,12 @@ def downloadJson(url, fileName):
 
 
 async def getOriginFloorImgFromSSJv1():
-    with open('stealth.min.js', mode='r') as f:
+    with open('./stealth.min.js', mode='r') as f:
         js = f.read()
     chromeDownloadPath = "D:\\Coding\\Web\\IKEA\\FetchData\\data\\img"
     if not os.path.exists(chromeDownloadPath):
         os.makedirs(chromeDownloadPath)
-    userData = f"C:\\用户\\Pang Hao\\AppData\\Local\\Google\\Chrome\\User Data"
+    userData = f"C:\\Users\\Pang Hao\\AppData\\Local\\Google\\Chrome\\User Data"
     chromeOptions = Options()
     chromeOptions.headless = True
     chromeOptions.add_experimental_option('excludeSwitches', ['enable-automation'])
@@ -468,7 +469,7 @@ def AuthCheck(driver):
 def checkStrInFile(checkstr, filePath):
     with open(filePath, "r") as f:
         for line in f.readlines():
-            if checkstr in line.strip():
+            if checkstr.strip() in line.strip():
                 return True
     return False
 
@@ -479,11 +480,12 @@ def getOriginFloorImgFromSSJv2(init=True):
         FetchJsonFromSJJ()
 
     origin = open('./history/originid.txt', 'r')
-    originIdList = origin.readlines()
+    originInfoList = origin.readlines()
     finished = open('./history/finish.txt', 'r')
     finishIdList = finished.readlines()
-    jsHankFile = open('stealth.min.js', mode='r')
+    jsHankFile = open('./stealth.min.js', mode='r')
     js = jsHankFile.read()
+    # 这里会失败,是不是要写全路径?
     chromeDownloadPath = "./data/img"
     if not os.path.exists(chromeDownloadPath):
         os.makedirs(chromeDownloadPath)
@@ -507,13 +509,13 @@ def getOriginFloorImgFromSSJv2(init=True):
         cmd_args={'source': js},
         cmd="Page.addScriptToEvaluateOnNewDocument",
     )
-    for id in originIdList:     # 待下载户型id
-        if id in finishIdList:  # 已完成的户型id
+    for info in originInfoList:  # 待下载户型id
+        if checkStrInFile(info.strip().split('\t')[0], './history/finish.txt'):  # 已完成的户型id
             continue
         else:
-            print(id)
+            print(info)
             try:
-                driver.get(f"https://3d.shejijia.com/?designType=publicdesign&assetId={id.strip()}")
+                driver.get(f"https://3d.shejijia.com/?designType=publicdesign&assetId={info.strip()}")
             finally:
                 AuthCheck(driver)
 
@@ -622,7 +624,7 @@ def getOriginFloorImgFromSSJv2(init=True):
 
                 time.sleep(20)
                 with open("./history/finish.txt", "a+") as finish:
-                    finish.write(f"{id}")
+                    finish.write(f"{info}")
                 # driver.close()
     finished.close()
     origin.close()
@@ -630,20 +632,5 @@ def getOriginFloorImgFromSSJv2(init=True):
 
 
 if __name__ == "__main__":
-    # FetchImgFromSJJ()
-    # test=changeExt("https://jr-prod-cms-assets.oss-cn-beijing.aliyuncs.com/Asset/6580da70-3aff-456b-803e-f8dc9d6a6e4c/v1658186122.jpg")
-    # print(test)
-    # loop = asyncio.get_event_loop()
-    # loop.run_until_complete(getOriginFloorImgFromSSJv1())
+    getOriginFloorImgFromSSJv2(True)
 
-    # downloadJson(
-    #     "https://jr-prod-cms-assets.oss-cn-beijing.aliyuncs.com/Asset/6580da70-3aff-456b-803e-f8dc9d6a6e4c/v1658186122.json",
-    #     "./data/v1658186122.json")
-    # getOriginFloorImgFromSSJv2()
-    # renameImgName(f"C:\\Users\\Pang Hao\\Desktop\\新建文件夹 (2)")
-    # filterLabel(f"C:\\Users\\Pang Hao\\Desktop\\dataset\\img",
-    #             "D:\\Coding\\Web\\IKEA\\FetchData\\data\\json",
-    #             "C:\\Users\\Pang Hao\\Desktop\\dataset\\label")
-    # i=whoisnotin("C:\\Users\\Pang Hao\\Desktop\\dataset\\img","C:\\Users\\Pang Hao\\Desktop\\dataset\\label")
-    # print(i)
-    getOriginFloorImgFromSSJv2(False)

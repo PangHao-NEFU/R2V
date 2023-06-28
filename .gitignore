@@ -1,0 +1,5 @@
+dataprepare/fromSJJ/history/
+dataprepare/fromSJJ/data/**/*.json
+.idea
+.vscode
+.history
