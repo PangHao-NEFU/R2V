@@ -1,3 +1,10 @@
+import os
+
+cur_folder_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+import sys
+
+sys.path.append(cur_folder_path)
+
 import numpy as np
 import cv2
 
@@ -139,8 +146,10 @@ def draw_points(all_wall_points, line_width=5, file_name="Node", background_img_
             y = pointInfo[1]
             img_data[max(y - line_width, 0):min(y + line_width, floor_plan_img_height - 1),
             max(x - line_width, 0):min(x + line_width, floor_plan_img_width - 1)] = line_color
-            cv2.putText(img_data, "("+str(x)+","+str(y)+")", (x, y),cv2.FONT_HERSHEY_COMPLEX_SMALL, 1,(255, 255, 0))
+            cv2.putText(img_data, "(" + str(x) + "," + str(y) + ")", (x, y), cv2.FONT_HERSHEY_COMPLEX_SMALL, 1,
+                        (255, 255, 0))
     cv2.imwrite(file_name, img_data)
+
 
 def calc_line_dim(self, point_1, point_2, threshold=5, space_flag=False):
     # space_flag.
@@ -152,6 +161,8 @@ def calc_line_dim(self, point_1, point_2, threshold=5, space_flag=False):
         return 0
     else:
         return 1
+
+
 def draw_lines(all_wall_lines, line_width=2, file_name="Node", background_img_data=None, rgb_color=[0, 0, 255]):
     try:
         image = background_img_data
@@ -162,10 +173,10 @@ def draw_lines(all_wall_lines, line_width=2, file_name="Node", background_img_da
         i = 0
         for wall_line in all_wall_lines:
             line_color = np.random.rand(3) * 255
-            if rgb_color is not None:
-                line_color[0] = rgb_color[0]
-                line_color[1] = rgb_color[1]
-                line_color[2] = rgb_color[2]
+            # if rgb_color is not None:
+            #     line_color[0] = rgb_color[0]
+            #     line_color[1] = rgb_color[1]
+            #     line_color[2] = rgb_color[2]
 
             point_1 = wall_line[0]
             point_2 = wall_line[1]
@@ -186,7 +197,7 @@ def draw_lines(all_wall_lines, line_width=2, file_name="Node", background_img_da
                 minValue:maxValue + 1, :] = line_color
             else:
                 image[minValue:maxValue + 1,
-                max(fixedValue - line_width, 0):min(fixedValue + line_width, floor_plan_img_width),:] = line_color
+                max(fixedValue - line_width, 0):min(fixedValue + line_width, floor_plan_img_width), :] = line_color
         cv2.imwrite(file_name, image)
 
     except Exception as err:
@@ -218,11 +229,15 @@ def draw_points_with_corners(all_wall_points, line_width=5, file_name="Node", ba
 
 
 if __name__ == '__main__':
+
+    imagePath = os.path.join(cur_folder_path,
+                             "dataCheck/0a0eccef-2277-4da0-9fe1-7277299af870/0a0eccef-2277-4da0-9fe1-7277299af870_resized.png")
+    txtPath= os.path.join(cur_folder_path,
+                             "dataCheck/0a0eccef-2277-4da0-9fe1-7277299af870/0a0eccef-2277-4da0-9fe1-7277299af870.txt")
     walls = []
     wall_types = []
     semantics = {}
-    with open(
-            "/Users/hehao/Desktop/Henry/IKEA/Prometheus/IKEA_img2floorplan/models/test/0a0eccef-2277-4da0-9fe1-7277299af870/0a0eccef-2277-4da0-9fe1-7277299af870.txt") as info_file:
+    with open(txtPath) as info_file:
         line_index = 0
         for line in info_file:
             line = line.split('\t')
@@ -248,14 +263,13 @@ if __name__ == '__main__':
         continue
     walls = [wall for wall_index, wall in enumerate(walls) if wall_index not in invalid_indices]
 
-    cv2_img = cv2.imread(
-        "/Users/hehao/Desktop/Henry/IKEA/Prometheus/IKEA_img2floorplan/models/test/0a0eccef-2277-4da0-9fe1-7277299af870/0a0eccef-2277-4da0-9fe1-7277299af870_resized.png")
-    draw_points(walls, file_name="DoorPoints.png", background_img_data=cv2_img)
 
-    draw_lines(walls, file_name="DoorPoints.png", background_img_data=cv2_img)
+    cv2_img = cv2.imread(imagePath)
+    draw_points(walls, file_name=os.path.join(cur_folder_path,"dataCheck/DoorPoints.png"), background_img_data=cv2_img)
+
+    draw_lines(walls, file_name=os.path.join(cur_folder_path,"dataCheck/DoorPoints.png"), background_img_data=cv2_img)
     corners, success = lines2Corners(walls, gap=gap)
     print(walls)
     print(success, corners)
-    cv2_img_copy = cv2.imread(
-        "/Users/hehao/Desktop/Henry/IKEA/Prometheus/IKEA_img2floorplan/models/test/0a0eccef-2277-4da0-9fe1-7277299af870/0a0eccef-2277-4da0-9fe1-7277299af870_resized.png")
-    draw_points_with_corners(corners, file_name="DoorPointsWithCorner.png", background_img_data=cv2_img_copy)
+    cv2_img_copy = cv2.imread(imagePath)
+    draw_points_with_corners(corners, file_name=os.path.join(cur_folder_path,"dataCheck/DoorPointsWithCorner.png"), background_img_data=cv2_img_copy)

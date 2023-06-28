@@ -1,10 +1,6 @@
 from gurobipy import *
-import cv2
-import numpy as np
-import sys
-import csv
 import copy
-from utils import *
+from dataPreprocess.dataCheck.utils import *
 from floorplan_utils import *
 from skimage import measure
 
