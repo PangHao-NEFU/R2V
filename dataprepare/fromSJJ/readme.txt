@@ -1,0 +1,1 @@
+启动main.py，可以在FetchImg中确定想要下载哪个城市的2d户型和json
