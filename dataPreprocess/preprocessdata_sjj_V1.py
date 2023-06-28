@@ -753,15 +753,22 @@ class PreprocessDataSJJ(object):
                 wall_line.mark_y = False
 
             for wall_line in all_wall_segments:
-                if (not wall_line.mark_x) and (self.calc_line_dim(wall_line.start_point, wall_line.end_point) == 0):
+                lin_dim = self.calc_line_dim(wall_line.start_point, wall_line.end_point)
+                # 水平
+                if not wall_line.mark_x and (lin_dim == 0):
                     x_aligned_wall_list = self._merge_aligned_walls(wall_line, all_wall_segments, 0)
                     wall_line.mark_x = True
                     new_wall_list.extend(x_aligned_wall_list)
-
-                if not wall_line.mark_y and (self.calc_line_dim(wall_line.start_point, wall_line.end_point) == 1):
+                # 竖直
+                if not wall_line.mark_y and (lin_dim == 1):
                     y_aligned_wall_list = self._merge_aligned_walls(wall_line, all_wall_segments, 1)
                     wall_line.mark_y = True
                     new_wall_list.extend(y_aligned_wall_list)
+                # 斜墙
+                if lin_dim == -1:
+                    wall_line.mark_x = True
+                    wall_line.mark_y = True
+                    new_wall_list.append(wall_line)
 
             self.all_wall_segments = new_wall_list
         except Exception as err:
@@ -1265,21 +1272,19 @@ class PreprocessDataSJJ(object):
                     round(max(point_1.y, point_2.y)))
 
                 if line_dim == 0:
-                    image[max(fixedValue - line_width, 0):min(fixedValue + line_width, self.floor_plan_img_height),
-                    minValue:maxValue + 1, :] = line_color
+                    image[max(fixedValue - line_width, 0):min(fixedValue + line_width, self.floor_plan_img_height),minValue:maxValue + 1, :] = line_color
 
                     cv2.putText(image, str(wall_line.p_id), (int(0.5 * (maxValue + minValue)), fixedValue),
                                 cv2.FONT_HERSHEY_COMPLEX_SMALL, 1,
                                 (0, 255, 0))
-
-                else:
-                    image[minValue:maxValue + 1,
-                    max(fixedValue - line_width, 0):min(fixedValue + line_width, self.floor_plan_img_width),
-                    :] = line_color
+                elif line_dim == 1:
+                    image[minValue:maxValue + 1,max(fixedValue - line_width, 0):min(fixedValue + line_width, self.floor_plan_img_width),:] = line_color
                     # #
                     cv2.putText(image, str(wall_line.p_id), (fixedValue, int(0.5 * (maxValue + minValue))),
                                 cv2.FONT_HERSHEY_COMPLEX_SMALL, 1,
                                 (0, 255, 0))
+                elif line_dim == -1:
+                    cv2.line(image, (point_1.x, point_1.y), (point_2.x, point_2.y), (255, 0, 0), 5)
 
             if save_flag:
                 wall_lines_res_file_path = os.path.join(self.res_sub_folder_path, "{0}.jpg".format(file_name))
@@ -1367,7 +1372,6 @@ class PreprocessDataSJJ(object):
             self._save_training_data()
         except Exception as err:
             print(err)
-
 
     def _calc_factor(self, json_data, floor_plan_img_height, floor_plan_img_width):
         if self.underlay_item is None:

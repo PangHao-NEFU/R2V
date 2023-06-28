@@ -1,0 +1,6 @@
+opencv-python
+pillow
+torch
+pillow
+pandas
+requests
