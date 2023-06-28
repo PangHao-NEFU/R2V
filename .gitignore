@@ -1,5 +1,6 @@
 dataprepare/fromSJJ/history/
-dataprepare/fromSJJ/data/**/*.json
+dataprepare/fromSJJ/data/
 .idea
 .vscode
 .history
+/dataprepare/fromSJJ/data/

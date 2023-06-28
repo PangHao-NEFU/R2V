@@ -35,7 +35,7 @@ def FetchJsonFromSJJ():
 
     for cityName, cityNum in cityNumbers.items():
         # 20页
-        for page in range(0, 5):
+        for page in range(3, 6):
             postBody = {"attributes": [f"{cityNum}"],
                         "cityId": f"{cityNum}",
                         "searchText": "",
@@ -50,7 +50,7 @@ def FetchJsonFromSJJ():
                 "Host": "api.shejijia.com",
                 "Accept-Encoding": "gzip, deflate, br",
                 "Connection": "keep-alive",
-                "Cookie": "gr_user_id=6fb471bc-a2f0-4afd-bbc2-54b8b5d71844; t=2fef9c1972b617d0935de19507e61860; cna=w2jWHBoZ1ikCAZJGkjL74pMw; user=%7B%22avatar%22%3A%22%22%2C%22nickName%22%3A%22%E8%AE%BE%E8%AE%A1%E5%B8%882344%22%2C%22memberType%22%3A%22designer%22%2C%22memberId%22%3A%223233517015626891264%22%2C%22env%22%3A%22prod%22%7D; _ga=GA1.1.124063153.1687312404; _ga_34B604LFFQ=GS1.1.1687343980.7.0.1687343980.60.0.0; cookie2=19b055f57f271b13d2a9157a9fa7948a; _tb_token_=73df1a69eee8e; _samesite_flag_=true; csg=da939863; xlly_s=1; _m_h5_tk=0e5fb5d7f9d6f740ce9cca6a33b5122d_1687871611065; _m_h5_tk_enc=607a89c917998d4beaa5043c479f3793; a0b8f1838a1126e3_gr_session_id=61c32ce3-715a-464a-bf22-68b7c6c3f5fa; a0b8f1838a1126e3_gr_session_id_sent_vst=61c32ce3-715a-464a-bf22-68b7c6c3f5fa; x5sec=7b22617365727665723b32223a226335346536643335653662373233633535323866376265356166333065613130434d505036365147454c72346d664334692f3630626a4431314a753542454144227d; isg=BLm5UtOx-TLguaWuE5msCyr_yCWTxq146WbypdvojuAYYtH0IRS3Sm7w5GaUWkWw",
+                "Cookie":"gr_user_id=6fb471bc-a2f0-4afd-bbc2-54b8b5d71844; t=2fef9c1972b617d0935de19507e61860; cna=w2jWHBoZ1ikCAZJGkjL74pMw; user=%7B%22avatar%22%3A%22%22%2C%22nickName%22%3A%22%E8%AE%BE%E8%AE%A1%E5%B8%882344%22%2C%22memberType%22%3A%22designer%22%2C%22memberId%22%3A%223233517015626891264%22%2C%22env%22%3A%22prod%22%7D; _ga=GA1.1.124063153.1687312404; _ga_34B604LFFQ=GS1.1.1687343980.7.0.1687343980.60.0.0; cookie2=19b055f57f271b13d2a9157a9fa7948a; _tb_token_=73df1a69eee8e; _samesite_flag_=true; csg=da939863; _m_h5_tk=5debcc2dab0da50c1f669e4152e60a69_1687938976870; _m_h5_tk_enc=2f93201ac78abc62bd285efeb994bb66; xlly_s=1; a0b8f1838a1126e3_gr_session_id=d944bd9f-cf19-4db9-af75-349951fd9041; a0b8f1838a1126e3_gr_session_id_sent_vst=d944bd9f-cf19-4db9-af75-349951fd9041; isg=BERENDaK_Kwq-UjpVtKJ5GeUFcI2XWjHVF3fol7vPY9KielThWzEVglrySFRkaAf",
                 "Referer": "https://www.shejijia.com/",
                 "Origin": "https://www.shejijia.com",
                 "Platform": "admin",
@@ -61,7 +61,7 @@ def FetchJsonFromSJJ():
                 "Sec-Ch-Ua-Platform": "Windows"
             }
             json_data = json.dumps(postBody)
-            time.sleep(5)
+            time.sleep(10)
             response = requests.post("https://api.shejijia.com/roommgr/api/rest/v1.0/templateasset/search",
                                      data=json_data,
                                      headers=headers)
@@ -84,7 +84,9 @@ def FetchJsonFromSJJ():
                             # origin文件里每行存两个内容,id和 name,如果name冲突,同样不保存id
                             f.write(i.get("id") + '\t' + i.get("name") + '\n')
                             # id    name的格式
-            except JSONDecodeError as e:
+            except (JSONDecodeError,TypeError) as e:
+                # print(i)
+                print(page)
                 print(e)
                 sys.exit(1)
 
