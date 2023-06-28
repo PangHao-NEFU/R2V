@@ -58,15 +58,21 @@ def isManhattan(line, gap=3):
     return min(abs(line[0][0] - line[1][0]), abs(line[0][1] - line[1][1])) < gap
 
 
-def calcLineDirection(line, gap=3):
-    # 0 水平；1 垂直
-    return int(abs(line[0][0] - line[1][0]) < abs(line[0][1] - line[1][1]))
+def calcLineDirection(line, threshold=5):
+    # 0 水平；1 垂直; -1 斜墙
+    if np.abs(line[0][0] - line[1][0]) > threshold and np.abs(line[0][1] - line[1][1]) > threshold:
+        return -1
+    else:
+        return int(abs(line[0][0] - line[1][0]) < abs(line[0][1] - line[1][1]))
 
 
 def lineRange(line):
     # direction: 0 水平；1 垂直
     direction = calcLineDirection(line)
-    fixedValue = (line[0][1 - direction] + line[1][1 - direction]) // 2
+    if direction == -1:
+        fixedValue = 0
+    else:
+        fixedValue = (line[0][1 - direction] + line[1][1 - direction]) // 2
     minValue = min(line[0][direction], line[1][direction])
     maxValue = max(line[0][direction], line[1][direction])
     return direction, fixedValue, minValue, maxValue
@@ -195,9 +201,11 @@ def draw_lines(all_wall_lines, line_width=2, file_name="Node", background_img_da
             if line_dim == 0:
                 image[max(fixedValue - line_width, 0):min(fixedValue + line_width, floor_plan_img_height),
                 minValue:maxValue + 1, :] = line_color
-            else:
+            elif line_dim == 1:
                 image[minValue:maxValue + 1,
                 max(fixedValue - line_width, 0):min(fixedValue + line_width, floor_plan_img_width), :] = line_color
+            elif line_dim == -1:
+                cv2.line(image, (point_1[0], point_1[1]), (point_2[0], point_2[1]), (255, 0, 0), 5)
         cv2.imwrite(file_name, image)
 
     except Exception as err:
