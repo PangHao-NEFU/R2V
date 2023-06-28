@@ -17,6 +17,10 @@ def lines2Corners(lines, gap):
         continue
 
     connectionCornerMap = {}
+    connectionCornerMap[(6, 1)] = 0 # 上钩
+    connectionCornerMap[(6, 2)] = 1 # 右钩
+    connectionCornerMap[(6, 3)] = 2 # 下钩
+    connectionCornerMap[(6, 4)] = 3 # 左钩
     connectionCornerMap[(1, 1)] = 4
     connectionCornerMap[(0, 1)] = 5
     connectionCornerMap[(0, 0)] = 6
@@ -67,14 +71,17 @@ def calcLineDirection(line, threshold=5):
 
 
 def lineRange(line):
-    # direction: 0 水平；1 垂直
+    # direction: 0 水平；1 垂直； -1 斜墙
     direction = calcLineDirection(line)
     if direction == -1:
         fixedValue = 0
+        minValue= 0
+        maxValue = 0
     else:
+        # 修正水平｜竖直的Wall Point
         fixedValue = (line[0][1 - direction] + line[1][1 - direction]) // 2
-    minValue = min(line[0][direction], line[1][direction])
-    maxValue = max(line[0][direction], line[1][direction])
+        minValue = min(line[0][direction], line[1][direction])
+        maxValue = max(line[0][direction], line[1][direction])
     return direction, fixedValue, minValue, maxValue
 
 
@@ -86,30 +93,52 @@ def findConnections(line_1, line_2, gap):
     connection_1 = -1
     connection_2 = -1
     pointConnected = False
+    direction_line1 = calcLineDirection(line_1)
+    direction_line2 = calcLineDirection(line_2)
     for c_1 in range(2):
         if pointConnected:
             break
         for c_2 in range(2):
-            distance = pointDistance(line_1[c_1], line_2[c_2])
-            if distance > gap:
-                continue
-
-            connection_1 = c_1
-            connection_2 = c_2
-            connectionPoint = ((line_1[c_1][0] + line_2[c_2][0]) // 2, (line_1[c_1][1] + line_2[c_2][1]) // 2)
-            pointConnected = True
-            break
+            # 新增斜墙判断逻辑 2023.06.28 henry.hao
+            if direction_line1 == -1 or direction_line2 == -1:
+                distance = pointDistance(line_1[c_1], line_2[c_2])
+                if distance > 10:
+                    continue
+                connectionPoint = ((line_1[c_1][0] + line_2[c_2][0]) // 2, (line_1[c_1][1] + line_2[c_2][1]) // 2)
+                connection_1 = 6
+                if c_1 ==0 and c_2 ==1:
+                    connection_2 = 1
+                elif c_1 ==0 and c_2 ==0:
+                    connection_2 = 2
+                elif c_1 ==1 and c_2 ==0:
+                    connection_2 = 3
+                elif c_1 ==1 and c_2 ==1:
+                    connection_2 = 2
+                pointConnected = True
+                break
+            else:
+                distance = pointDistance(line_1[c_1], line_2[c_2])
+                if distance > gap:
+                    continue
+                connection_1 = c_1
+                connection_2 = c_2
+                connectionPoint = ((line_1[c_1][0] + line_2[c_2][0]) // 2, (line_1[c_1][1] + line_2[c_2][1]) // 2)
+                pointConnected = True
+                break
         continue
     if pointConnected:
+        # L｜钩 Shape，假设封闭区域的L corner Point distance<gap
         return [connection_1, connection_2], connectionPoint
     direction_1, fixedValue_1, min_1, max_1 = lineRange(line_1)
     direction_2, fixedValue_2, min_2, max_2 = lineRange(line_2)
+
+    # 平行 或 降噪后平行，这里的gpa容易把小的断头墙干掉
     if direction_1 == direction_2:
         return [-1, -1], (0, 0)
-    if min(fixedValue_1, max_2) < max(fixedValue_1, min_2) - gap or min(fixedValue_2, max_1) < max(fixedValue_2,
-                                                                                                   min_1) - gap:
+    if min(fixedValue_1, max_2) < max(fixedValue_1, min_2) - gap or min(fixedValue_2, max_1) < max(fixedValue_2,min_1) - gap:
         return [-1, -1], (0, 0)
 
+    # T Shape
     if abs(min_1 - fixedValue_2) <= gap:
         return [0, 2], (fixedValue_2, fixedValue_1)
     if abs(max_1 - fixedValue_2) <= gap:
@@ -277,7 +306,7 @@ if __name__ == '__main__':
 
     draw_lines(walls, file_name=os.path.join(cur_folder_path,"dataCheck/DoorPoints.png"), background_img_data=cv2_img)
     corners, success = lines2Corners(walls, gap=gap)
-    print(walls)
-    print(success, corners)
+    print(len(walls),walls)
+    print(success,len(corners),corners)
     cv2_img_copy = cv2.imread(imagePath)
     draw_points_with_corners(corners, file_name=os.path.join(cur_folder_path,"dataCheck/DoorPointsWithCorner.png"), background_img_data=cv2_img_copy)
