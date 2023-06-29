@@ -1377,7 +1377,7 @@ class PreprocessDataSJJ(object):
         # except Exception as err:
         #     print(err)
 
-
+    # 计算比例尺,但是v2版本的数据没有height了
     def _calc_factor(self, json_data, floor_plan_img_height, floor_plan_img_width):
         if self.underlay_item is None:
             return None

@@ -8,7 +8,7 @@ from skimage import measure
 import cv2
 import copy
 
-from pytorch.utils import *
+from utils.utils import *
 
 
 def lineRange(line):
@@ -96,7 +96,7 @@ def lines2Corners(walls, gap):
         lineConnections.append({})
         continue
 
-    connectionCornerMap = {}    # 转角类型,对应于论文中的L,T,X-shape
+    connectionCornerMap = {}  # 转角类型,对应于论文中的L,T,X-shape
     connectionCornerMap[(1, 1)] = 4
     connectionCornerMap[(0, 1)] = 5
     connectionCornerMap[(0, 0)] = 6
@@ -106,7 +106,7 @@ def lines2Corners(walls, gap):
     connectionCornerMap[(2, 1)] = 10
     connectionCornerMap[(0, 2)] = 11
     connectionCornerMap[(2, 2)] = 12
-    corners = []    # corners也是一个元组列表,每一项都包括两个值(连接点,意义不明的int)
+    corners = []  # corners也是一个元组列表,每一项都包括两个值(连接点,意义不明的int)
     for lineIndex_1, line_1 in enumerate(walls):
         for lineIndex_2, line_2 in enumerate(walls):
             if lineIndex_2 == lineIndex_1:
@@ -248,7 +248,7 @@ class FloorplanDataset(Dataset):
         self.options = options
         self.split = split
         self.random = random
-        self.imagePaths = []    # 其中存放的是一个数组,数组每一项第一个是图片路径,第二个是图片标注的路径
+        self.imagePaths = []  # 其中存放的是一个数组,数组每一项第一个是图片路径,第二个是图片标注的路径
         self.dataFolder = './data/'
         with open(self.dataFolder + split) as f:
             for line in f:
@@ -296,11 +296,11 @@ class FloorplanDataset(Dataset):
         # else:
         # return (int(round(float(x))), int(round(float(y))))
 
-        walls = []      # wall是一个元组,其包含两项,墙的左端点(x,y)和右端点(x1,y1)
+        walls = []  # wall是一个元组,其包含两项,墙的左端点(x,y)和右端点(x1,y1)
         wall_types = []
         doors = []
         semantics = {}
-        with open(self.dataFolder + self.imagePaths[index][1]) as info_file:    # 标注数据文件
+        with open(self.dataFolder + self.imagePaths[index][1]) as info_file:  # 标注数据文件
             line_index = 0
             for line in info_file:
                 line = line.split('\t')
@@ -319,13 +319,13 @@ class FloorplanDataset(Dataset):
                 continue
             pass
 
-
         gap = 5
         # print(semantics)
         invalid_indices = {}
         for wall_index_1, (wall_1, wall_type_1) in enumerate(zip(walls, wall_types)):
             for wall_index_2, (wall_2, wall_type_2) in enumerate(zip(walls, wall_types)):
-                if wall_type_1 == 0 and wall_type_2 == 1 and calcLineDirection(wall_1) == calcLineDirection(wall_2):    # 计算两个墙方向相同
+                if wall_type_1 == 0 and wall_type_2 == 1 and calcLineDirection(wall_1) == calcLineDirection(
+                        wall_2):  # 计算两个墙方向相同
                     if min([pointDistance(wall_1[c_1], wall_2[c_2]) for c_1, c_2 in
                             [(0, 0), (0, 1), (1, 0), (1, 1)]]) <= gap * 2:
                         walls[wall_index_1] = mergeLines(wall_1, wall_2)

@@ -289,6 +289,7 @@ class PreprocessDataSJJ(object):
             img_data = cv2.imread(self.cad_image_resized_file_path)
             img_data = cv2.cvtColor(img_data, cv2.COLOR_BGR2GRAY)
 
+            # image real width and height
             floor_plan_img_height = img_data.shape[0]
             floor_plan_img_width = img_data.shape[1]
 
@@ -1375,7 +1376,7 @@ class PreprocessDataSJJ(object):
         width = self.underlay_item["width"]
         height = self.underlay_item["height"]
 
-        ratio = height / (136.7 * floor_plan_img_height)
+        ratio = height / (136.7 * floor_plan_img_height)    # 计算比例尺
         return abs(width), abs(height), abs(1.0 / ratio)
 
     def _save_training_data(self):
