@@ -6,7 +6,6 @@ import numpy as np
 import os
 import cv2
 
-from utils import *
 from options import parse_args
 
 from models.model import Model

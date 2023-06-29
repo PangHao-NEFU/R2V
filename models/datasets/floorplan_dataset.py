@@ -6,9 +6,6 @@ import time
 
 from skimage import measure
 import cv2
-import copy
-
-from utils.utils import *
 
 
 def lineRange(line):
