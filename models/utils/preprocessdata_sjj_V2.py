@@ -303,7 +303,7 @@ class PreprocessDataSJJ(object):
             # img_data必须为三通道
             img_data = cv2.cvtColor(img_data, cv2.COLOR_BGR2GRAY)
 
-            floor_plan_img_height = img_data.shape[0]  # 这里按理说是724×512
+            floor_plan_img_height = img_data.shape[0]  # 这里按理说是512,512
             floor_plan_img_width = img_data.shape[1]
 
             x_offset, y_offset, self.factor = self._calc_factor(jason_data, floor_plan_img_height,
@@ -1411,10 +1411,6 @@ class PreprocessDataSJJ(object):
         edges = cv2.Canny(grayImg, 300, 500, apertureSize=3)
         lines = cv2.HoughLinesP(edges, 1, np.pi / 180, threshold=100, minLineLength=100, maxLineGap=10)
         # print(lines,lines.shape)
-
-        width = 10  # self.underlay_item["width"]
-        height = 15.123  # self.underlay_item["height"]
-
         digits = digits.split('\n')     # digits中会有很多奇奇怪怪的东西,过滤一下
         filteredDigits=[]
         for d in digits:
@@ -1423,7 +1419,6 @@ class PreprocessDataSJJ(object):
             except ValueError:
                 continue
             filteredDigits.append(int(d))
-
         maxDigits=max(filteredDigits)
         # print(digits)
         horizontal = []
@@ -1439,7 +1434,7 @@ class PreprocessDataSJJ(object):
         # print(sorted(horizontal,reverse=True))
         maxLineLength = sorted(horizontal, reverse=True)[0]
         ratio = ((maxLineLength * 1000) / float(maxDigits)) * float(512 / 3000)
-        print("ratio", ratio)
+        print("ratio:", ratio)
         # 像素/米
         return 0, -8.1, ratio
 
