@@ -1,6 +1,8 @@
+import os.path
+
 import numpy as np
 import cv2
-
+from math import *
 
 def lines2Corners(lines, gap):
     success = True
@@ -620,3 +622,9 @@ def calcLineDirectionPoints(points, line):
         point_2 = point_2[0]
         pass
     return calcLineDirection((point_1, point_2))
+
+
+
+
+
+

@@ -108,4 +108,6 @@ if __name__ == '__main__':
     # renameImgByJson("C:\\Users\\Pang Hao\\Desktop\\dataset2\\img",
     #                 "C:\\Users\\Pang Hao\\Desktop\\dataset2\\json")
     # removeDouble("C:\\Users\\Pang Hao\\Desktop\\dataset2\\filtered")
-    filterValidJson("C:\\Users\\Pang Hao\\Desktop\\dataset2\\filtered","C:\\Users\\Pang Hao\\Desktop\\dataset2\\json")
+    # filterValidJson("C:\\Users\\Pang Hao\\Desktop\\dataset2\\filtered","C:\\Users\\Pang Hao\\Desktop\\dataset2\\json")
+    # renameImgName(r'C:\Users\Pang Hao\Desktop\sjjdataset3\img')
+    whoisnotin(r'C:\Users\Pang Hao\Desktop\sjjdataset3\img',r'C:\Users\Pang Hao\Desktop\sjjdataset3\json')

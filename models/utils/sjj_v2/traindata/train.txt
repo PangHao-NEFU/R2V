@@ -1,0 +1,1 @@
+Data/bazx_resized.png	Data/bazx.txt
