@@ -1,6 +1,6 @@
 import torch
 from torch import nn
-import numpy as np
+from dataPreprocess.dataCheck.utils import *
 from baseinc import fpLog
 
 ## Conv + bn + relu

@@ -2,10 +2,9 @@ import torch
 from torch.utils.data import DataLoader
 
 from tqdm import tqdm
-import numpy as np
 import os
-import cv2
 
+from dataPreprocess.dataCheck.utils import *
 from options import parse_args
 
 from models.model import Model

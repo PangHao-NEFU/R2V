@@ -1,23 +1,38 @@
 from torch.utils.data import Dataset
+
 import numpy as np
 import time
-# from plane_dataset_scannet import PlaneDatasetScanNet
-# from augmentation import *
 
+from utils import *
 from skimage import measure
 import cv2
+import copy
+
+
+def calcLineDirection(line, threshold=5):
+    # 0 水平；1 垂直; -1 斜墙
+    if np.abs(line[0][0] - line[1][0]) > threshold and np.abs(line[0][1] - line[1][1]) > threshold:
+        return -1
+    else:
+        return int(abs(line[0][0] - line[1][0]) < abs(line[0][1] - line[1][1]))
 
 
 def lineRange(line):
+    # direction: 0 水平；1 垂直； -1 斜墙
     direction = calcLineDirection(line)
-    fixedValue = (line[0][1 - direction] + line[1][1 - direction]) // 2
-    minValue = min(line[0][direction], line[1][direction])
-    maxValue = max(line[0][direction], line[1][direction])
+    if direction == -1:
+        fixedValue = 0
+        minValue = 0
+        maxValue = 0
+    else:
+        # 修正水平｜竖直的Wall Point
+        fixedValue = (line[0][1 - direction] + line[1][1 - direction]) // 2
+        minValue = min(line[0][direction], line[1][direction])
+        maxValue = max(line[0][direction], line[1][direction])
     return direction, fixedValue, minValue, maxValue
 
 
 def pointDistance(point_1, point_2):
-    # return np.sqrt(pow(point_1[0] - point_2[0], 2) + pow(point_1[1] - point_2[1], 2))
     return max(abs(point_1[0] - point_2[0]), abs(point_1[1] - point_2[1]))
 
 
@@ -49,31 +64,53 @@ def findConnections(line_1, line_2, gap):
     connection_1 = -1
     connection_2 = -1
     pointConnected = False
+    direction_line1 = calcLineDirection(line_1)
+    direction_line2 = calcLineDirection(line_2)
     for c_1 in range(2):
         if pointConnected:
             break
         for c_2 in range(2):
-            if pointDistance(line_1[c_1], line_2[c_2]) > gap:
-                continue
-
-            connection_1 = c_1
-            connection_2 = c_2
-            connectionPoint = ((line_1[c_1][0] + line_2[c_2][0]) // 2, (line_1[c_1][1] + line_2[c_2][1]) // 2)
-            pointConnected = True
-            break
+            # 新增斜墙判断逻辑 2023.06.28 henry.hao
+            if direction_line1 == -1 or direction_line2 == -1:
+                distance = pointDistance(line_1[c_1], line_2[c_2])
+                if distance > 10:
+                    continue
+                connectionPoint = ((line_1[c_1][0] + line_2[c_2][0]) // 2, (line_1[c_1][1] + line_2[c_2][1]) // 2)
+                connection_1 = 6
+                if c_1 == 0 and c_2 == 1:
+                    connection_2 = 1
+                elif c_1 == 0 and c_2 == 0:
+                    connection_2 = 2
+                elif c_1 == 1 and c_2 == 0:
+                    connection_2 = 3
+                elif c_1 == 1 and c_2 == 1:
+                    connection_2 = 2
+                pointConnected = True
+                break
+            else:
+                distance = pointDistance(line_1[c_1], line_2[c_2])
+                if distance > gap:
+                    continue
+                connection_1 = c_1
+                connection_2 = c_2
+                connectionPoint = ((line_1[c_1][0] + line_2[c_2][0]) // 2, (line_1[c_1][1] + line_2[c_2][1]) // 2)
+                pointConnected = True
+                break
         continue
     if pointConnected:
+        # L｜钩 Shape，假设封闭区域的L corner Point distance<gap
         return [connection_1, connection_2], connectionPoint
     direction_1, fixedValue_1, min_1, max_1 = lineRange(line_1)
     direction_2, fixedValue_2, min_2, max_2 = lineRange(line_2)
+
+    # 平行 或 降噪后平行，这里的gpa容易把小的断头墙干掉
     if direction_1 == direction_2:
         return [-1, -1], (0, 0)
-
-    # print(fixedValue_1, min_1, max_1, fixedValue_2, min_2, max_2)
     if min(fixedValue_1, max_2) < max(fixedValue_1, min_2) - gap or min(fixedValue_2, max_1) < max(fixedValue_2,
                                                                                                    min_1) - gap:
         return [-1, -1], (0, 0)
 
+    # T Shape
     if abs(min_1 - fixedValue_2) <= gap:
         return [0, 2], (fixedValue_2, fixedValue_1)
     if abs(max_1 - fixedValue_2) <= gap:
@@ -85,15 +122,18 @@ def findConnections(line_1, line_2, gap):
     return [2, 2], (fixedValue_2, fixedValue_1)
 
 
-def lines2Corners(walls, gap):
+def lines2Corners(lines, gap):
     success = True
-    corners = []
     lineConnections = []
-    for _ in range(len(walls)):
+    for _ in range(len(lines)):
         lineConnections.append({})
         continue
 
-    connectionCornerMap = {}  # 转角类型,对应于论文中的L,T,X-shape
+    connectionCornerMap = {}
+    connectionCornerMap[(6, 1)] = 0 # 上钩
+    connectionCornerMap[(6, 2)] = 1 # 右钩
+    connectionCornerMap[(6, 3)] = 2 # 下钩
+    connectionCornerMap[(6, 4)] = 3 # 左钩
     connectionCornerMap[(1, 1)] = 4
     connectionCornerMap[(0, 1)] = 5
     connectionCornerMap[(0, 0)] = 6
@@ -103,32 +143,26 @@ def lines2Corners(walls, gap):
     connectionCornerMap[(2, 1)] = 10
     connectionCornerMap[(0, 2)] = 11
     connectionCornerMap[(2, 2)] = 12
-    corners = []  # corners也是一个元组列表,每一项都包括两个值(连接点,意义不明的int)
-    for lineIndex_1, line_1 in enumerate(walls):
-        for lineIndex_2, line_2 in enumerate(walls):
+    corners = []
+    for lineIndex_1, line_1 in enumerate(lines):
+        for lineIndex_2, line_2 in enumerate(lines):
             if lineIndex_2 == lineIndex_1:
                 continue
             connections, connectionPoint = findConnections(line_1, line_2, gap=gap)
             if connections[0] == -1 and connections[1] == -1:
                 continue
             if calcLineDirection(line_1) == calcLineDirection(line_2) and isManhattan(line_1) and isManhattan(line_2):
-                # print('overlap', line_1, line_2, connections)
                 success = False
-                # exit(1)
                 continue
             if calcLineDirection(line_1) == 1:
                 continue
 
             indices = [lineIndex_1, lineIndex_2]
-            # print(lineIndex_1, lineIndex_2, connections)
             for c in range(2):
                 if connections[c] in [0, 1] and connections[c] in lineConnections[indices[c]] and isManhattan(
                         line_1) and isManhattan(line_2):
-                    # print('duplicate corner', line_1, line_2, connections)
                     success = False
-                    # exit(1)
                     continue
-
                 lineConnections[indices[c]][connections[c]] = True
                 continue
             corners.append((connectionPoint, connectionCornerMap[tuple(connections)]))
@@ -182,9 +216,9 @@ def loadLabelMap():
     return labelMap
 
 
-def augmentSample(options, image, background_colors=[], split='train.txt'):
+def augmentSample(options, image, background_colors=[], split='train'):
     max_size = np.random.randint(low=int(options.width * 3 / 4), high=options.width + 1)
-    if split != 'train.txt':
+    if split != 'train':
         max_size = options.width
         pass
     image_sizes = np.array(image.shape[:2]).astype(np.float32)
@@ -193,12 +227,12 @@ def augmentSample(options, image, background_colors=[], split='train.txt'):
     transformation[2][2] = 1
     image_sizes = (image_sizes / image_sizes.max() * max_size).astype(np.int32)
 
-    if image_sizes[1] == options.width or split != 'train.txt':
+    if image_sizes[1] == options.width or split != 'train':
         offset_x = 0
     else:
         offset_x = np.random.randint(options.width - image_sizes[1])
         pass
-    if image_sizes[0] == options.height or split != 'train.txt':
+    if image_sizes[0] == options.height or split != 'train':
         offset_y = 0
     else:
         offset_y = np.random.randint(options.height - image_sizes[0])
@@ -217,14 +251,9 @@ def augmentSample(options, image, background_colors=[], split='train.txt'):
 
     # full_image = np.full((options.height, options.width, 3), fill_value=-1, dtype=np.float32)
     full_image[offset_y:offset_y + image_sizes[0], offset_x:offset_x + image_sizes[1]] = cv2.resize(image, (
-        image_sizes[1], image_sizes[0]))
+    image_sizes[1], image_sizes[0]))
     image = full_image
 
-    if np.random.randint(2) == 0 and split == 'train.txt':
-        image = np.ascontiguousarray(image[:, ::-1])
-        transformation[0][0] *= -1
-        transformation[0][2] = options.width - transformation[0][2]
-        pass
     return image, transformation
 
 
@@ -239,26 +268,24 @@ def transformPoint(transformation, point):
     return tuple(np.round(point[:2] / point[2]).astype(np.int32).tolist())
 
 
-# Plane dataset class
+## Plane dataset class
 class FloorplanDataset(Dataset):
     def __init__(self, options, split, random=True):
         self.options = options
         self.split = split
         self.random = random
-        self.imagePaths = []  # 其中存放的是一个数组,数组每一项第一个是图片路径,第二个是图片标注的路径
-        self.dataFolder = './data/'
-        with open(self.dataFolder + split) as f:
+        self.imagePaths = []
+        self.dataFolder = '/Users/hehao/Desktop/Henry/IKEA/Prometheus/IKEA_img2floorplan/models/datasets/'
+        with open(self.dataFolder + split + '.txt') as f:
             for line in f:
                 self.imagePaths.append([value.strip() for value in line.split('\t')])
                 continue
 
-        # 配置图片数量
-        if options.numTrainingImages > 0 and split == 'train.txt':
-            self.numImages = options.numTrainingImages
+        if options.numTrainingImages > 0 and split == 'train':
+            self.numImages = len(self.imagePaths)
         else:
             self.numImages = len(self.imagePaths)
             pass
-
         self.labelMap = loadLabelMap()
         return
 
@@ -280,24 +307,21 @@ class FloorplanDataset(Dataset):
         debug = -1
         if debug >= 0:
             index = debug
-            print(index, self.imagePaths[index][1])
             pass
 
         image = cv2.imread(self.dataFolder + self.imagePaths[index][0])
-        image_ori = image
+        random_int = np.random.randint(0, 2)
+        transpose_flag = False if random_int == 0 else True
+        if transpose_flag:
+            image = np.transpose(image, axes=(1, 0, 2))
         image_width, image_height = image.shape[1], image.shape[0]
 
-        # def transformPoint(x, y, resize=False):
-        # if resize:
-        # return (int(round(float(x) * self.options.width / image_width)), int(round(float(y) * self.options.height / image_height)))
-        # else:
-        # return (int(round(float(x))), int(round(float(y))))
-
-        walls = []  # wall是一个元组,其包含两项,墙的左端点(x,y)和右端点(x1,y1)
+        walls = []
         wall_types = []
+        openings = []
         doors = []
         semantics = {}
-        with open(self.dataFolder + self.imagePaths[index][1]) as info_file:  # 标注数据文件
+        with open(self.dataFolder + self.imagePaths[index][1]) as info_file:
             line_index = 0
             for line in info_file:
                 line = line.split('\t')
@@ -305,8 +329,21 @@ class FloorplanDataset(Dataset):
                 if label == 'wall':
                     walls.append((convertToPoint(line[0], line[1]), convertToPoint(line[2], line[3])))
                     wall_types.append(int(line[5].strip()) - 1)
-                elif label in ['door', 'window']:
-                    doors.append((convertToPoint(line[0], line[1]), convertToPoint(line[2], line[3])))
+                elif label in ['opening']:
+                    opening_type = line[5].strip()
+                    openings.append((convertToPoint(line[0], line[1]), convertToPoint(line[2], line[3]), opening_type))
+                elif label in ['door']:
+                    door_type = line[5].strip()
+                    door_direction = line[6].strip()
+                    # Transpose the door direction.
+                    if transpose_flag:
+                        if int(door_direction) == 1:
+                            door_direction = '3'
+                        elif int(door_direction) == 3:
+                            door_direction = '1'
+
+                    doors.append(
+                        (convertToPoint(line[0], line[1]), convertToPoint(line[2], line[3]), door_type, door_direction))
                 else:
                     if label not in semantics:
                         semantics[label] = []
@@ -321,8 +358,7 @@ class FloorplanDataset(Dataset):
         invalid_indices = {}
         for wall_index_1, (wall_1, wall_type_1) in enumerate(zip(walls, wall_types)):
             for wall_index_2, (wall_2, wall_type_2) in enumerate(zip(walls, wall_types)):
-                if wall_type_1 == 0 and wall_type_2 == 1 and calcLineDirection(wall_1) == calcLineDirection(
-                        wall_2):  # 计算两个墙方向相同
+                if wall_type_1 == 0 and wall_type_2 == 1 and calcLineDirection(wall_1) == calcLineDirection(wall_2):
                     if min([pointDistance(wall_1[c_1], wall_2[c_2]) for c_1, c_2 in
                             [(0, 0), (0, 1), (1, 0), (1, 1)]]) <= gap * 2:
                         walls[wall_index_1] = mergeLines(wall_1, wall_2)
@@ -346,14 +382,11 @@ class FloorplanDataset(Dataset):
                 continue
             pass
 
-        # walls = connectWalls(walls, roomSegmentation, gap=gap)
-
         corners, success = lines2Corners(walls, gap=gap)
         if not success:
-            # print('warning', index, self.imagePaths[index][1])
             pass
 
-        if self.split == 'train.txt':
+        if self.split == 'train':
             image, transformation = augmentSample(self.options, image, background_colors)
         else:
             image, transformation = augmentSample(self.options, image, background_colors, split=self.split)
@@ -361,7 +394,10 @@ class FloorplanDataset(Dataset):
 
         corners = [(transformPoint(transformation, corner[0]), corner[1]) for corner in corners]
         walls = [[transformPoint(transformation, wall[c]) for c in range(2)] for wall in walls]
-        doors = [[transformPoint(transformation, door[c]) for c in range(2)] for door in doors]
+        openings = [[transformPoint(transformation, opening[0]), transformPoint(transformation, opening[1]), opening[2]]
+                    for opening in openings]
+        doors = [[transformPoint(transformation, door[0]), transformPoint(transformation, door[1]), door[2], door[3]]
+                 for door in doors]
         for semantic, items in semantics.items():
             semantics[semantic] = [[transformPoint(transformation, item[c]) for c in range(2)] for item in items]
             continue
@@ -371,26 +407,63 @@ class FloorplanDataset(Dataset):
 
         roomSegmentation = np.zeros((height, width), dtype=np.uint8)
         for line in walls:
-            # cv2.line(roomSegmentation, line[0], line[1], color=NUM_ROOMS + 1 + calcLineDirection(line), thickness=gap)
             cv2.line(roomSegmentation, line[0], line[1], color=NUM_ROOMS + 1, thickness=gap)
             continue
 
         rooms = measure.label(roomSegmentation == 0, background=0)
-
+        # 墙
         corner_gt = []
         for corner in corners:
             corner_gt.append((corner[0][0], corner[0][1], corner[1] + 1))
             continue
-
+        # 窗
         openingCornerMap = [[3, 1], [0, 2]]
-        for opening in doors:
+        for opening in openings:
             direction = calcLineDirection(opening)
+            opening_type = int(opening[2])
             for cornerIndex, corner in enumerate(opening):
-                corner_gt.append(
-                    (int(round(corner[0])), int(round(corner[1])), 14 + openingCornerMap[direction][cornerIndex]))
+                if cornerIndex > 1:
+                    break
+                corner_gt.append((int(round(corner[0])), int(round(corner[1])),
+                                  14 + 4 * opening_type + openingCornerMap[direction][cornerIndex]))
                 continue
             continue
+        # 4种类型的门
+        for door in doors:
+            # direction 水平还是竖直
+            direction = calcLineDirection(door)
+            # 1. 单开门 2.双开门 3.门窗合体，类似单开门 4. 双移门
+            # 单开门, 双开门，门窗合体的点各有八种情况。(4 * 2, 2表示是在门direction是在墙左右，还是在墙上下。)
+            # 双移门： 4种情况， 不需要区分门的direction是否在墙左右还是墙上下。
+            door_type = int(door[2]) - 1
+            door_direction = int(door[3])
+            #
+            for cornerIndex, corner in enumerate(door):
+                # 单开门，双开门，门窗合体
+                if door_type < 3:
+                    # corner_index = 0, 1, 2, 3
+                    corner_index = openingCornerMap[direction][cornerIndex]
+                    # 水平门
+                    # 开门的方向在水平线之下。
+                    if corner_index in [3, 1] and door_direction in [3, 0]:
+                        sub_offset = 1
+                    # 开门的方向在竖直线右侧
+                    elif corner_index in [2, 0] and door_direction in [2, 3]:
+                        sub_offset = 1
+                    else:
+                        sub_offset = 0
+                    offset = 2 * corner_index + sub_offset
+                    corner_gt.append(
+                        (int(round(corner[0])), int(round(corner[1])), 22 + 8 * door_type + offset))
+                else:
+                    # door_type = 4 双移门
+                    corner_gt.append(
+                        (int(round(corner[0])), int(round(corner[1])),
+                         22 + 24 + openingCornerMap[direction][cornerIndex]))
 
+                if cornerIndex >= 1:
+                    break
+            continue
         wallIndex = rooms.min()
         for pixel in [(0, 0), (0, height - 1), (width - 1, 0), (width - 1, height - 1)]:
             backgroundIndex = rooms[pixel[1]][pixel[0]]
@@ -415,25 +488,9 @@ class FloorplanDataset(Dataset):
                     corner_gt.append((corners[0][0], corners[1][1], 18 + 1))
                     corner_gt.append((corners[1][0], corners[0][1], 18 + 3))
                     corner_gt.append((corners[1][0], corners[1][1], 18 + 0))
-                else:
-                    roomIndex = rooms[(corners[0][1] + corners[1][1]) // 2][(corners[0][0] + corners[1][0]) // 2]
-                    if roomIndex == wallIndex or roomIndex == backgroundIndex:
-                        # if roomIndex == backgroundIndex:
-                        # print('label on background', corners, semantic, index, self.imagePaths[index][1])
-                        # pass
-                        continue
-                    if roomIndex in roomLabelMap:
-                        # print('room has more than one labels', corners, label, roomLabelMap[roomIndex])
-                        # exit(1)
-                        continue
-                        pass
-                    roomLabelMap[roomIndex] = label
-                    roomSegmentation[rooms == roomIndex] = label
-                    pass
                 continue
             continue
 
-        # print(roomLabelMap)
         if debug >= 0:
             cv2.imwrite('test/floorplan/rooms.png', drawSegmentationImage(rooms, blackIndex=backgroundIndex))
             exit(1)
@@ -444,12 +501,10 @@ class FloorplanDataset(Dataset):
                 continue
             if roomIndex not in roomLabelMap:
                 roomSegmentation[rooms == roomIndex] = 10
-                # print('room has no label', roomIndex, rooms.max(), np.stack((rooms == roomIndex).nonzero(), axis=-1).mean(0)[::-1])
-                # exit(1)
                 pass
             continue
 
-        cornerSegmentation = np.zeros((height, width, 21), dtype=np.uint8)
+        cornerSegmentation = np.zeros((height, width, NUM_CORNERS), dtype=np.uint8)
         for corner in corner_gt:
             cornerSegmentation[min(max(corner[1], 0), height - 1), min(max(corner[0], 0), width - 1), corner[2] - 1] = 1
             continue
@@ -459,8 +514,6 @@ class FloorplanDataset(Dataset):
             cv2.imwrite('test/icon_segmentation.png', drawSegmentationImage(iconSegmentation))
             cv2.imwrite('test/room_segmentation.png', drawSegmentationImage(roomSegmentation))
             cv2.imwrite('test/corner_segmentation.png', drawSegmentationImage(cornerSegmentation, blackIndex=0))
-            print(
-                [(seg.min(), seg.max(), seg.shape) for seg in [cornerSegmentation, iconSegmentation, roomSegmentation]])
             exit(1)
             pass
 
