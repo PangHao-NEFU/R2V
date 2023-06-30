@@ -1,7 +1,7 @@
 #from gurobipy import *
 from pulp import *
 import copy
-from dataPreprocess.dataCheck.utils import *
+from dataPreprocess.utils import *
 from skimage import measure
 
 GAPS = {'wall_extraction': 5, 'door_extraction': 5, 'icon_extraction': 5, 'wall_neighbor': 5, 'door_neighbor': 5, 'icon_neighbor': 5, 'wall_conflict': 5, 'door_conflict': 5, 'icon_conflict': 5, 'wall_icon_neighbor': 5, 'wall_icon_conflict': 5, 'wall_door_neighbor': 5, 'door_point_conflict': 5}

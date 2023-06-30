@@ -7,46 +7,6 @@ import numpy as np
 import pytesseract
 from PIL import Image
 
-def _calc_factor( iimg ):
-    # if self.underlay_item is None:
-    #     return None
-    # 预处理
-    iimg=cv2.cvtColor(iimg,cv2.COLOR_RGBA2BGR)
-    gray=cv2.cvtColor(iimg,cv2.COLOR_BGR2GRAY)
-
-    # blurred = cv2.GaussianBlur(gray, (5, 5), 0)
-    blurred=gray
-
-    # 配置tesseract
-    pytesseract.pytesseract.tesseract_cmd = r'D:\Program\Tesseract-OCR\tesseract.exe'
-    # 识别数字
-    testdata_dir_config = r'--tessdata-dir "C:\Program\Tesseract-OCR\tessdata"'
-    digits = pytesseract.image_to_string(blurred, config=f'--psm 6 digits', lang='eng')
-    # 使用霍夫变换检测直线,窗口大小3
-    edges = cv2.Canny(blurred, 300, 500, apertureSize=3)
-    lines = cv2.HoughLinesP(edges, 1, np.pi / 180, threshold=100,minLineLength=100,maxLineGap=10)
-    # print(lines,lines.shape)
-
-    width = 10  # self.underlay_item["width"]
-    height = 15.123  # self.underlay_item["height"]
-    digits=digits.split('\n')[0]
-    # print(digits)
-    horizontal=[]
-    for line in lines:
-        x1, y1, x2, y2 = line[0]
-        slope = (y2 - y1) / (x2 - x1 + 1e-5)  # 避免除以零
-        if abs(slope) < 0.1:  # 过滤斜率接近于水平的直线
-            dis=sqrt((x2 - x1)**2 + (y2 - y1)**2)
-            if dis<3000:
-                horizontal.append(dis)
-                cv2.line(iimg, (x1, y1), (x2, y2), (0, 255, 0), 2)  # 绘制水平线
-
-    # print(sorted(horizontal,reverse=True))
-    maxLineLength = sorted(horizontal,reverse=True)[0]
-
-    # 像素/米
-    return (maxLineLength*100)/float(digits)
-
 def resizeImg(imgPath, width=512, height=512):
     img = cv2.imread(imgPath)
     width,height=img.shape

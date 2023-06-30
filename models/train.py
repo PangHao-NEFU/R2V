@@ -2,9 +2,8 @@ import torch
 from torch.utils.data import DataLoader
 
 from tqdm import tqdm
-import os
 
-from dataPreprocess.dataCheck.utils import *
+from dataPreprocess.utils import *
 from options import parse_args
 
 from models.model import Model

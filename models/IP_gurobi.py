@@ -1,6 +1,6 @@
 from gurobipy import *
 import copy
-from dataPreprocess.dataCheck.utils import *
+from dataPreprocess.utils import *
 from floorplan_utils import *
 from skimage import measure
 

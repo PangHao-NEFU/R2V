@@ -3,7 +3,7 @@ from torch.utils.data import Dataset
 import numpy as np
 import time
 
-from utils import *
+from models.utils.utils import *
 from skimage import measure
 import cv2
 import copy

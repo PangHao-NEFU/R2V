@@ -2,7 +2,6 @@
 import os
 import json
 from math import sqrt
-
 import numpy as np
 import cv2
 from PIL import Image
@@ -769,15 +768,22 @@ class PreprocessDataSJJ(object):
                 wall_line.mark_y = False
 
             for wall_line in all_wall_segments:
-                if (not wall_line.mark_x) and (self.calc_line_dim(wall_line.start_point, wall_line.end_point) == 0):
+                lin_dim = self.calc_line_dim(wall_line.start_point, wall_line.end_point)
+                # 水平
+                if not wall_line.mark_x and (lin_dim == 0):
                     x_aligned_wall_list = self._merge_aligned_walls(wall_line, all_wall_segments, 0)
                     wall_line.mark_x = True
                     new_wall_list.extend(x_aligned_wall_list)
-
-                if not wall_line.mark_y and (self.calc_line_dim(wall_line.start_point, wall_line.end_point) == 1):
+                # 竖直
+                if not wall_line.mark_y and (lin_dim == 1):
                     y_aligned_wall_list = self._merge_aligned_walls(wall_line, all_wall_segments, 1)
                     wall_line.mark_y = True
                     new_wall_list.extend(y_aligned_wall_list)
+                # 斜墙
+                if lin_dim == -1:
+                    wall_line.mark_x = True
+                    wall_line.mark_y = True
+                    new_wall_list.append(wall_line)
 
             self.all_wall_segments = new_wall_list
         except Exception as err:
@@ -1281,21 +1287,20 @@ class PreprocessDataSJJ(object):
                     round(max(point_1.y, point_2.y)))
 
                 if line_dim == 0:
-                    image[max(fixedValue - line_width, 0):min(fixedValue + line_width, self.floor_plan_img_height),
-                    minValue:maxValue + 1, :] = line_color
+                    image[max(fixedValue - line_width, 0):min(fixedValue + line_width, self.floor_plan_img_height),minValue:maxValue + 1, :] = line_color
 
                     cv2.putText(image, str(wall_line.p_id), (int(0.5 * (maxValue + minValue)), fixedValue),
                                 cv2.FONT_HERSHEY_COMPLEX_SMALL, 1,
                                 (0, 255, 0))
-
-                else:
-                    image[minValue:maxValue + 1,
-                    max(fixedValue - line_width, 0):min(fixedValue + line_width, self.floor_plan_img_width),
-                    :] = line_color
+                elif line_dim == 1:
+                    image[minValue:maxValue + 1,max(fixedValue - line_width, 0):min(fixedValue + line_width, self.floor_plan_img_width),:] = line_color
                     # #
                     cv2.putText(image, str(wall_line.p_id), (fixedValue, int(0.5 * (maxValue + minValue))),
                                 cv2.FONT_HERSHEY_COMPLEX_SMALL, 1,
                                 (0, 255, 0))
+                # 画斜墙
+                elif line_dim == -1:
+                    cv2.line(image, (point_1.x, point_1.y), (point_2.x, point_2.y), (255, 0, 0), 5)
 
             if save_flag:
                 wall_lines_res_file_path = os.path.join(self.res_sub_folder_path, "{0}.jpg".format(file_name))
@@ -1307,100 +1312,99 @@ class PreprocessDataSJJ(object):
             print(err)
 
     def extract_primitive_data(self):
-        # try:
-        if not os.path.exists(self.img_file_path) or not os.path.exists(self.json_file_path):
-            return None
+        try:
+            if not os.path.exists(self.img_file_path) or not os.path.exists(self.json_file_path):
+                return None
 
         # Load Image Data.
-        img_data = cv2.imread(self.img_file_path)
-        img_data = cv2.cvtColor(img_data, cv2.COLOR_RGBA2BGR)
-        self.floor_plan_img_height = img_data.shape[0]
-        self.floor_plan_img_width = img_data.shape[1]
+            img_data = cv2.imread(self.img_file_path)
+            img_data = cv2.cvtColor(img_data, cv2.COLOR_RGBA2BGR)
+            self.floor_plan_img_height = img_data.shape[0]
+            self.floor_plan_img_width = img_data.shape[1]
 
-        # Load Json Data.
-        with open(self.json_file_path, 'r', encoding=r'UTF-8') as load_f:
-            floorplan_json_data = json.load(load_f)
+            # Load Json Data.
+            with open(self.json_file_path, 'r', encoding=r'UTF-8') as load_f:
+                floorplan_json_data = json.load(load_f)
 
-        # Parse the Json Data.
-        self._parse_items_data_dict(floorplan_json_data)
+            # Parse the Json Data.
+            self._parse_items_data_dict(floorplan_json_data)
 
-        # 场景数据。
-        if self.scene_item is None:
-            return None
+            # 场景数据。
+            if self.scene_item is None:
+                return None
 
-        # active layer就是其布局界面
-        active_layer_id = self.scene_item["activeLayer"]
-        active_layer = self.id_2_items_dict[active_layer_id]
+            # active layer就是其布局界面
+            active_layer_id = self.scene_item["activeLayer"]
+            active_layer = self.id_2_items_dict[active_layer_id]
 
-        # 解析 wall 数据
-        self._parse_layer_wall_lines(active_layer)
+            # 解析 wall 数据
+            self._parse_layer_wall_lines(active_layer)
 
-        # 解析 opening 数据
-        self._parse_opening_data(floorplan_json_data['products'])
+            # 解析 opening 数据
+            self._parse_opening_data(floorplan_json_data['products'])
 
-        # 图片大小改为为512*512
-        self.resize_image()
+            # 图片大小改为为512*512
+            self.resize_image()
 
-        # mapping points from 3D space to pixel space.计算比例尺等
-        self.format_point_info(floorplan_json_data)
+            # mapping points from 3D space to pixel space.计算比例尺等
+            self.format_point_info(floorplan_json_data)
 
-        # 把相同点进行合并。
-        self.merge_points()
+            # 把相同点进行合并。
+            self.merge_points()
 
-        # 墙进行合并
-        self.merge_walls()
+            # 墙进行合并
+            self.merge_walls()
 
-        # 去掉多余的墙,比如，用一堵墙来标识一个管道等等。
-        self.remove_smash_wall()
+            # 去掉多余的墙,比如，用一堵墙来标识一个管道等等。
+            self.remove_smash_wall()
 
-        # update wall point connects.
-        self.update_walls_points_position()
+            # update wall point connects.
+            self.update_walls_points_position()
 
-        self.reset_wall_close_points()
+            self.reset_wall_close_points()
 
-        all_wall_points = list(self.all_wall_points.values())
-        img_data = cv2.imread(self.cad_image_resized_file_path)
-        back_groud_img_data = img_data.copy()
-        # 画墙点
-        self.draw_points(all_wall_points, background_img_data=back_groud_img_data, file_name="WallPoint")
-        back_groud_img_data = img_data.copy()
-        # 画门点
-        self.draw_points(self.all_door_points, background_img_data=back_groud_img_data, file_name="DoorPoint")
-        back_groud_img_data = img_data.copy()
-        # 画窗
-        self.draw_points(self.all_opening_points, background_img_data=back_groud_img_data, file_name="OpeningPoint")
-        back_groud_img_data = img_data.copy()
-        self.draw_points(self.all_hole_points, line_width=2, background_img_data=back_groud_img_data,
-                         file_name="HolePoint")
-        back_groud_img_data = img_data.copy()
-        self.draw_lines(self.all_wall_segments, line_width=2, background_img_data=back_groud_img_data,
-                        file_name="WallLines")
-        back_groud_img_data = img_data.copy()
-        self.draw_lines(self.all_opening_lines, line_width=2, background_img_data=back_groud_img_data,
-                        file_name="OpeningLines")
-        back_groud_img_data = img_data.copy()
-        self.draw_lines(self.all_door_lines, line_width=2, background_img_data=back_groud_img_data,
-                        file_name="DoorLines")
-        back_groud_img_data = img_data.copy()
-        self.draw_lines(self.all_holes, line_width=2, background_img_data=back_groud_img_data, file_name="Holes")
+            all_wall_points = list(self.all_wall_points.values())
+            img_data = cv2.imread(self.cad_image_resized_file_path)
+            back_groud_img_data = img_data.copy()
+            # 画墙点
+            self.draw_points(all_wall_points, background_img_data=back_groud_img_data, file_name="WallPoint")
+            back_groud_img_data = img_data.copy()
+            # 画门点
+            self.draw_points(self.all_door_points, background_img_data=back_groud_img_data, file_name="DoorPoint")
+            back_groud_img_data = img_data.copy()
+            # 画窗
+            self.draw_points(self.all_opening_points, background_img_data=back_groud_img_data, file_name="OpeningPoint")
+            back_groud_img_data = img_data.copy()
+            self.draw_points(self.all_hole_points, line_width=2, background_img_data=back_groud_img_data,
+                             file_name="HolePoint")
+            back_groud_img_data = img_data.copy()
+            self.draw_lines(self.all_wall_segments, line_width=2, background_img_data=back_groud_img_data,
+                            file_name="WallLines")
+            back_groud_img_data = img_data.copy()
+            self.draw_lines(self.all_opening_lines, line_width=2, background_img_data=back_groud_img_data,
+                            file_name="OpeningLines")
+            back_groud_img_data = img_data.copy()
+            self.draw_lines(self.all_door_lines, line_width=2, background_img_data=back_groud_img_data,
+                            file_name="DoorLines")
+            back_groud_img_data = img_data.copy()
+            self.draw_lines(self.all_holes, line_width=2, background_img_data=back_groud_img_data, file_name="Holes")
 
-        self._save_training_data()
-
-    # except Exception as err:
-    #     print(err)
+            self._save_training_data()
+        except Exception as err:
+            print(err)
 
     # 计算比例尺,但是v2版本的数据没有height了
     def _calc_factor(self, json_data, floor_plan_img_height, floor_plan_img_width):
         if self.underlay_item is None:
             return None
 
-        # 配置tesseract
+        # 配置tesseract,下载并且安装tesseract,配置可执行文件路径
         pytesseract.pytesseract.tesseract_cmd = r'D:\Program\Tesseract-OCR\tesseract.exe'
         # 识别数字
         originalImg = cv2.imread(self.img_file_path)
         cvtOriginalImg = cv2.cvtColor(originalImg, cv2.COLOR_RGBA2BGR)
-        # testdata_dir_config = r'--tessdata-dir "C:\Program\Tesseract-OCR\tessdata"'
         height, width = cvtOriginalImg.shape[:2]
+        # 裁剪图片上方1/4的区域以便更好使用ocr识别比例数字
         crop_height = int(height / 4)
         cropped_Img = cvtOriginalImg[:crop_height, :]
         # cv2.imshow("crop", cropped_Img)
@@ -1421,12 +1425,14 @@ class PreprocessDataSJJ(object):
             filteredDigits.append(int(d))
         maxDigits=max(filteredDigits)
         # print(digits)
+        # 过滤直线
         horizontal = []
         for line in lines:
             x1, y1, x2, y2 = line[0]
             slope = (y2 - y1) / (x2 - x1 + 1e-5)  # 避免除以零
             if abs(slope) < 0.1:  # 过滤斜率接近于水平的直线
                 dis = sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
+                # 图片边缘也会被识别为直线!
                 if dis < 2500:
                     horizontal.append(dis)
                     # cv2.line(iimg, (x1, y1), (x2, y2), (0, 255, 0), 2)  # 绘制水平线
@@ -1593,13 +1599,11 @@ class Hole(WallLine):
 
 
 def process_design_data(folder_path, sub_folder_name, res_folder_path):
-    # try:
-    pro_data = PreprocessDataSJJ(folder_path, sub_folder_name, res_folder_path)
-    pro_data.extract_primitive_data()
-
-
-# except Exception as err:
-#     print(err)
+    try:
+        pro_data = PreprocessDataSJJ(folder_path, sub_folder_name, res_folder_path)
+        pro_data.extract_primitive_data()
+    except Exception as err:
+        print(err)
 
 
 def create_training_data(folder_path, res_folder_path):
