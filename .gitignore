@@ -4,3 +4,5 @@ dataprepare/fromSJJ/data/
 .vscode
 .history
 /dataprepare/fromSJJ/data/
+/models/utils/sjj_v2/
+/models/checkpoint/
