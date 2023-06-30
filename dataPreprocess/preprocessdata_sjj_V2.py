@@ -1433,7 +1433,7 @@ class PreprocessDataSJJ(object):
             if abs(slope) < 0.1:  # 过滤斜率接近于水平的直线
                 dis = sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
                 # 图片边缘也会被识别为直线!
-                if dis < 2500:
+                if dis < min(height,width)-150:
                     horizontal.append(dis)
                     # cv2.line(iimg, (x1, y1), (x2, y2), (0, 255, 0), 2)  # 绘制水平线
 

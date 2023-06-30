@@ -6,9 +6,20 @@ import cv2
 import numpy as np
 import pytesseract
 from PIL import Image
+import shutil
+from tqdm import tqdm
+
+## 读取图像，解决imread不能读取中文路径的问题
+def cv2_imread(file_path):
+    cv_img = cv2.imdecode(np.fromfile(file_path,dtype=np.uint8),-1)
+    return cv_img
+
+def cv2_imwrite(file_path,imgfile):
+    ext=os.path.splitext(os.path.basename(file_path))[-1]
+    cv2.imencode(f'{ext}', imgfile)[1].tofile(file_path)
 
 def resizeImg(imgPath, width=512, height=512):
-    img = cv2.imread(imgPath)
+    img =cv2_imread(imgPath)
     width,height=img.shape
     width=min(width,height)
     height=min(width,height)
@@ -61,7 +72,7 @@ def crop_image(image_path,target_size:tuple):
 # 正方形图片,以短边为准,超出的地方不要了
 def make_square(image_path):
     # 读取图像
-    image = cv2.imread(image_path)
+    image = cv2_imread(image_path)
 
     # 获取图像的宽度和高度
     height, width = image.shape[:2]
@@ -77,22 +88,43 @@ def make_square(image_path):
     cropped_image = image[start_y:start_y+size, start_x:start_x+size]
     fileDirPath=os.path.dirname(image_path)
     fileName=os.path.basename(image_path)
-    resizedimgName=os.path.splitext(fileName)[0]+'-squared'+os.path.splitext(fileName)[1]
-    output_path=os.path.join(fileDirPath,resizedimgName)
-    print(output_path)
-    # 保存图片
-    # cropped_image.save(output_path)
-    cv2.imwrite(output_path,cropped_image)
+    output_path=os.path.join(os.path.dirname(fileDirPath),'croped',fileName)
+    if not os.path.exists(os.path.join(os.path.dirname(fileDirPath),'croped')):
+        os.makedirs(os.path.join(os.path.dirname(fileDirPath),'croped'))
+    # print(output_path)
+
+    cv2_imwrite(output_path,cropped_image)
+
+def renameImgNameByJson(imagedir,labeldir):
+    imageFiles=os.listdir(imagedir)
+    labelFiles=os.listdir(labeldir)
+    for img in tqdm(imageFiles):
+        for label in labelFiles:
+            imgFileName=os.path.splitext(img)[0]
+            imgExt=os.path.splitext(img)[-1]
+            floorName=os.path.splitext(label)[0].split('@')[0]
+            if imgFileName == floorName:
+                floorId=os.path.splitext(label)[0].split('@')[-1]
+                newImgPath=os.path.join(os.path.dirname(imagedir),'result',f"{floorId}",floorId+imgExt)
+                newLabelPath=os.path.join(os.path.dirname(imagedir),'result',f"{floorId}",floorId+'.json')
+                if not os.path.exists(os.path.join(os.path.dirname(imagedir),'result',f'{floorId}')):
+                    os.makedirs(os.path.join(os.path.dirname(imagedir),'result',f'{floorId}'))
+                shutil.copy2(os.path.join(imagedir,img),newImgPath)
+                shutil.copy2(os.path.join(labeldir,label),newLabelPath)
+                break
+
+def batchCropImg(imgDir):
+    imageFiles=os.listdir(imgDir)
+    for img in tqdm(imageFiles):
+        imgPath=os.path.join(imgDir,img)
+        if os.path.isfile(imgPath) and (os.path.splitext(os.path.basename(imgPath))[-1] in ('.jpg','.png')):
+            make_square(imgPath)
+
 
 if __name__ == "__main__":
-    # imgPath=r"./sjj_v2/data/agl/agl.png"
-    # readimg = cv2.imread(imgPath)
-    #
-    #
-    # # Image.open(imgPath)
-    # print(_calc_factor(readimg))
-    # resizeImg('./sjj_v2/data/agl/agl.png')
-
-    # crop_image('./sjj_v2/data/bly/bly.png',(2970,2970))   #这种效果不好
-    make_square('./sjj_v2/data/bly/bly.png')
+    # step 1:图片中心裁剪:
+    imgDirPath=r''
+    batchCropImg(imgDirPath)
+    # step 2:筛选合适的crop的图片后,将dir输入下方
+    labelDirPath=r''
 

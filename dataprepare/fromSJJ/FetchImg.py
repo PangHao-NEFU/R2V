@@ -32,7 +32,7 @@ def FetchJsonFromSJJ():
 
     }
     idList = []
-    cookie="gr_user_id=6fb471bc-a2f0-4afd-bbc2-54b8b5d71844; t=2fef9c1972b617d0935de19507e61860; cna=w2jWHBoZ1ikCAZJGkjL74pMw; user=%7B%22avatar%22%3A%22%22%2C%22nickName%22%3A%22%E8%AE%BE%E8%AE%A1%E5%B8%882344%22%2C%22memberType%22%3A%22designer%22%2C%22memberId%22%3A%223233517015626891264%22%2C%22env%22%3A%22prod%22%7D; _gid=GA1.2.847912475.1687943017; xlly_s=1; cookie2=16c5e61f41abf18fdc0a41af14c00c53; _tb_token_=e3e117166166b; a0b8f1838a1126e3_gr_session_id=6e2362b8-f666-4694-b695-fe211fe627b3; a0b8f1838a1126e3_gr_session_id_sent_vst=6e2362b8-f666-4694-b695-fe211fe627b3; _m_h5_tk=b0c5d2f4f89861312fd301653af22ce4_1688122504206; _m_h5_tk_enc=0450104e5fb7f4f138fb1f530b1ba4d8; _gat=1; _ga_34B604LFFQ=GS1.1.1688113143.13.1.1688113145.58.0.0; _ga=GA1.1.124063153.1687312404; isg=BLCw7dleoC3pM3wlAvYl4Gu4gX4C-ZRDyAHL7qoBr4v3ZVIPUwiJ0ooXvW0FdUwb"
+    cookie = "gr_user_id=6fb471bc-a2f0-4afd-bbc2-54b8b5d71844; t=2fef9c1972b617d0935de19507e61860; cna=w2jWHBoZ1ikCAZJGkjL74pMw; user=%7B%22avatar%22%3A%22%22%2C%22nickName%22%3A%22%E8%AE%BE%E8%AE%A1%E5%B8%882344%22%2C%22memberType%22%3A%22designer%22%2C%22memberId%22%3A%223233517015626891264%22%2C%22env%22%3A%22prod%22%7D; _gid=GA1.2.847912475.1687943017; xlly_s=1; cookie2=16c5e61f41abf18fdc0a41af14c00c53; _tb_token_=e3e117166166b; a0b8f1838a1126e3_gr_session_id=6e2362b8-f666-4694-b695-fe211fe627b3; a0b8f1838a1126e3_gr_session_id_sent_vst=6e2362b8-f666-4694-b695-fe211fe627b3; _m_h5_tk=b0c5d2f4f89861312fd301653af22ce4_1688122504206; _m_h5_tk_enc=0450104e5fb7f4f138fb1f530b1ba4d8; _gat=1; _ga_34B604LFFQ=GS1.1.1688113143.13.1.1688113145.58.0.0; _ga=GA1.1.124063153.1687312404; isg=BLCw7dleoC3pM3wlAvYl4Gu4gX4C-ZRDyAHL7qoBr4v3ZVIPUwiJ0ooXvW0FdUwb"
 
     for cityName, cityNum in cityNumbers.items():
         # 20页
@@ -62,12 +62,12 @@ def FetchJsonFromSJJ():
                 "Cache-Control": "no-cache",
                 "Authority": "api.shejijia.com",
                 "Sec-Ch-Ua-Platform": "Windows",
-                "Accept-Language":"zh-CN,zh;q=0.9,zh-TW;q=0.8",
-                "Sec-Ch-Ua-Mobile":"?0",
-                "Sec-Fetch-Mode":"cors"
+                "Accept-Language": "zh-CN,zh;q=0.9,zh-TW;q=0.8",
+                "Sec-Ch-Ua-Mobile": "?0",
+                "Sec-Fetch-Mode": "cors"
             }
             json_data = json.dumps(postBody)
-            time.sleep(10)
+            time.sleep(15)
             response = requests.post("https://api.shejijia.com/roommgr/api/rest/v1.0/templateasset/search",
                                      data=json_data,
                                      headers=headers)
@@ -91,10 +91,11 @@ def FetchJsonFromSJJ():
                             f.write(i.get("id") + '\t' + i.get("name") + '\n')
                             f.flush()
                             # id    name的格式
-            except (JSONDecodeError,TypeError) as e:
+            except (JSONDecodeError, TypeError) as e:
                 # print(i)
-                print(page)
-                print(e)
+                print(f"currentpage:{page}\n" )
+                print(f"错误信息:{e}\n")
+                print(f"接口访问错误!,重试!")
                 sys.exit(1)
 
     return idList
@@ -182,7 +183,7 @@ def AuthCheck(driver):
 
 def checkStrInFile(checkstr, filePath):
     if not os.path.exists(filePath):
-        file=open(filePath,"w")
+        file = open(filePath, "w")
         file.close()
     with open(filePath, "r") as f:
         for line in f.readlines():
@@ -192,7 +193,7 @@ def checkStrInFile(checkstr, filePath):
 
 
 # 直接拿接口
-def getOriginFloorImgFromSSJv2(init=True,jsonOnly=False):
+def getOriginFloorImgFromSSJv2(init=True, jsonOnly=False):
     if init:
         FetchJsonFromSJJ()
 
@@ -231,9 +232,9 @@ def getOriginFloorImgFromSSJv2(init=True,jsonOnly=False):
         if checkStrInFile(info.strip().split('\t')[0], './history/finish.txt'):  # 已完成的户型id
             continue
         else:
-            print("当前任务为: ",info.strip())
+            print("当前任务为: ", info.strip())
             try:
-                assetId=info.strip().split('\t')[0]
+                assetId = info.strip().split('\t')[0]
                 driver.get(f"https://3d.shejijia.com/?designType=publicdesign&assetId={assetId}")
             finally:
                 AuthCheck(driver)
@@ -347,7 +348,7 @@ def getOriginFloorImgFromSSJv2(init=True,jsonOnly=False):
                     finish.flush()
                     finish.close()
                 # driver.close()
-                print("图片下载完成",info.strip(),'\n')
+                print("图片下载完成", info.strip(), '\n')
     finished.close()
     origin.close()
     jsHankFile.close()
