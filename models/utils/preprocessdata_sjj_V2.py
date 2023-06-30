@@ -241,11 +241,11 @@ class PreprocessDataSJJ(object):
             min_y = 1000.0
             max_y = -1000.0
             # get the range box of loop.
-            for child_id in loop["children"]:
+            for child_id in loop["c"]:
                 cur_co_edge = self.id_2_items_dict[child_id]
                 edge_id = cur_co_edge["edge"]
                 edge = self.id_2_items_dict[edge_id]
-                for vertex_id in edge["children"]:
+                for vertex_id in edge["c"]:
                     vertex = self.id_2_items_dict[vertex_id]
 
                     x = vertex["x"]
@@ -468,8 +468,8 @@ class PreprocessDataSJJ(object):
         x_length = np.abs(window_item["XLength"])
         y_length = np.abs(window_item["YLength"])
         x_scale = np.abs(window_item["XScale"])
-        y_scale = np.abs(window_item["YScale"])
-        z_rotation_value = window_item["ZRotation"]
+        y_scale = np.abs(window_item.get("YScale") or 1)        # 这里会报错,没有YScale
+        z_rotation_value = window_item.get("ZRotation") or 360    # 报错,没有ZRotation
         length = x_length * x_scale if x_length > y_length else y_length * y_scale
         z_rotation_value = 3.1415926535 * z_rotation_value / 180.0
         start_point = Point("-1", x - 0.5 * length * np.cos(z_rotation_value),
@@ -668,7 +668,7 @@ class PreprocessDataSJJ(object):
 
     # 处理门窗
     def _parse_opening_data(self, products_data):
-        # opening ID.
+        # opening ID. json里面就是l:Window,id: 就是这个opening_id
         for opening_id in self.id_2_opening_items_dict.keys():
             opening_item = self.id_2_opening_items_dict[opening_id]
             class_type_name = opening_item["l"]
@@ -1341,7 +1341,7 @@ class PreprocessDataSJJ(object):
         # 图片大小改为为512*512
         self.resize_image()
 
-        # mapping points from 3D space to pixel space.
+        # mapping points from 3D space to pixel space.计算比例尺等
         self.format_point_info(floorplan_json_data)
 
         # 把相同点进行合并。
@@ -1414,7 +1414,17 @@ class PreprocessDataSJJ(object):
 
         width = 10  # self.underlay_item["width"]
         height = 15.123  # self.underlay_item["height"]
-        digits = digits.split('\n')[0]
+
+        digits = digits.split('\n')     # digits中会有很多奇奇怪怪的东西,过滤一下
+        filteredDigits=[]
+        for d in digits:
+            try:
+                int(d)
+            except ValueError:
+                continue
+            filteredDigits.append(int(d))
+
+        maxDigits=max(filteredDigits)
         # print(digits)
         horizontal = []
         for line in lines:
@@ -1428,10 +1438,10 @@ class PreprocessDataSJJ(object):
 
         # print(sorted(horizontal,reverse=True))
         maxLineLength = sorted(horizontal, reverse=True)[0]
-        ratio = ((maxLineLength * 1000) / float(digits)) * float(512 / 3000)
+        ratio = ((maxLineLength * 1000) / float(maxDigits)) * float(512 / 3000)
         print("ratio", ratio)
         # 像素/米
-        return 0, -8, ratio
+        return 0, -8.1, ratio
 
     def _save_training_data(self):
         self._save_line_points(self.all_wall_segments, type_name="wall")

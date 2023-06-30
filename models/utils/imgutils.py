@@ -133,6 +133,6 @@ if __name__ == "__main__":
     # print(_calc_factor(readimg))
     # resizeImg('./sjj_v2/data/agl/agl.png')
 
-    crop_image('./sjj_v2/data/bazx/bazx.png',(2970,2970))
-    make_square('./sjj_v2/data/bazx/bazx.png')
+    # crop_image('./sjj_v2/data/bly/bly.png',(2970,2970))   #这种效果不好
+    make_square('./sjj_v2/data/bly/bly.png')
 

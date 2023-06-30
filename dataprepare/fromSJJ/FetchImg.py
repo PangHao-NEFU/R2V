@@ -32,10 +32,13 @@ def FetchJsonFromSJJ():
 
     }
     idList = []
+    cookie="gr_user_id=6fb471bc-a2f0-4afd-bbc2-54b8b5d71844; t=2fef9c1972b617d0935de19507e61860; cna=w2jWHBoZ1ikCAZJGkjL74pMw; user=%7B%22avatar%22%3A%22%22%2C%22nickName%22%3A%22%E8%AE%BE%E8%AE%A1%E5%B8%882344%22%2C%22memberType%22%3A%22designer%22%2C%22memberId%22%3A%223233517015626891264%22%2C%22env%22%3A%22prod%22%7D; _gid=GA1.2.847912475.1687943017; xlly_s=1; cookie2=16c5e61f41abf18fdc0a41af14c00c53; _tb_token_=e3e117166166b; a0b8f1838a1126e3_gr_session_id=6e2362b8-f666-4694-b695-fe211fe627b3; a0b8f1838a1126e3_gr_session_id_sent_vst=6e2362b8-f666-4694-b695-fe211fe627b3; _m_h5_tk=b0c5d2f4f89861312fd301653af22ce4_1688122504206; _m_h5_tk_enc=0450104e5fb7f4f138fb1f530b1ba4d8; _gat=1; _ga_34B604LFFQ=GS1.1.1688113143.13.1.1688113145.58.0.0; _ga=GA1.1.124063153.1687312404; isg=BLCw7dleoC3pM3wlAvYl4Gu4gX4C-ZRDyAHL7qoBr4v3ZVIPUwiJ0ooXvW0FdUwb"
 
     for cityName, cityNum in cityNumbers.items():
         # 20页
-        for page in range(3, 6):
+        print("下载json开始!")
+        for page in range(0, 6):
+            print(f"当前下载epoch为:{page}")
             postBody = {"attributes": [f"{cityNum}"],
                         "cityId": f"{cityNum}",
                         "searchText": "",
@@ -50,7 +53,7 @@ def FetchJsonFromSJJ():
                 "Host": "api.shejijia.com",
                 "Accept-Encoding": "gzip, deflate, br",
                 "Connection": "keep-alive",
-                "Cookie":"gr_user_id=6fb471bc-a2f0-4afd-bbc2-54b8b5d71844; t=2fef9c1972b617d0935de19507e61860; cna=w2jWHBoZ1ikCAZJGkjL74pMw; user=%7B%22avatar%22%3A%22%22%2C%22nickName%22%3A%22%E8%AE%BE%E8%AE%A1%E5%B8%882344%22%2C%22memberType%22%3A%22designer%22%2C%22memberId%22%3A%223233517015626891264%22%2C%22env%22%3A%22prod%22%7D; _ga=GA1.1.124063153.1687312404; _ga_34B604LFFQ=GS1.1.1687343980.7.0.1687343980.60.0.0; cookie2=19b055f57f271b13d2a9157a9fa7948a; _tb_token_=73df1a69eee8e; _samesite_flag_=true; csg=da939863; _m_h5_tk=5debcc2dab0da50c1f669e4152e60a69_1687938976870; _m_h5_tk_enc=2f93201ac78abc62bd285efeb994bb66; xlly_s=1; a0b8f1838a1126e3_gr_session_id=d944bd9f-cf19-4db9-af75-349951fd9041; a0b8f1838a1126e3_gr_session_id_sent_vst=d944bd9f-cf19-4db9-af75-349951fd9041; bx-cookie-test=1; x5sec=7b22617365727665723b32223a226436393436383638386666636232666366376331353032613436616339613736434f4c6e37365147454f4b332b5933543650753877514577396453627551524141773d3d227d; isg=BDQ0aIY67Py5xHg5JoJ5NBfEBfKmDVj35O3Pks6aEr_aOcWD9RzQhmu7uXHhwZBP",
+                "Cookie": f"{cookie}",
                 "Referer": "https://www.shejijia.com/",
                 "Origin": "https://www.shejijia.com",
                 "Platform": "admin",
@@ -479,7 +482,7 @@ def checkStrInFile(checkstr, filePath):
         file.close()
     with open(filePath, "r") as f:
         for line in f.readlines():
-            if checkstr.strip() in line.strip():
+            if checkstr.strip() == line.strip().split('\t')[-1]:
                 return True
     return False
 
@@ -647,5 +650,5 @@ def getOriginFloorImgFromSSJv2(init=True):
 
 
 if __name__ == "__main__":
-    getOriginFloorImgFromSSJv2(False)
-
+    # getOriginFloorImgFromSSJv2(True)
+    FetchJsonFromSJJ()
