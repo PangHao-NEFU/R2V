@@ -17,7 +17,7 @@ def startProcess():
                 print("正常退出")
                 sys.exit(0)
             print("异常退出,重启子进程")
-            time.sleep(15)
+            time.sleep(30)
 
         except subprocess.CalledProcessError as e:
             errorMeg = e.stderr.decode().strip()

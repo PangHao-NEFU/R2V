@@ -9,12 +9,23 @@ from PIL import Image
 import shutil
 from tqdm import tqdm
 
-## 读取图像，解决imread不能读取中文路径的问题
+# 读取图像，解决imread不能读取中文路径的问题
 def cv2_imread(file_path):
+    """
+    解决opencv读取文件路径不允许中文的问题
+    :param file_path:
+    :return:
+    """
     cv_img = cv2.imdecode(np.fromfile(file_path,dtype=np.uint8),-1)
     return cv_img
 
 def cv2_imwrite(file_path,imgfile):
+    """
+    解决opencv写文件路径不允许有中文的问题
+    :param file_path:
+    :param imgfile:
+    :return:
+    """
     ext=os.path.splitext(os.path.basename(file_path))[-1]
     cv2.imencode(f'{ext}', imgfile)[1].tofile(file_path)
 
@@ -92,7 +103,6 @@ def make_square(image_path):
     if not os.path.exists(os.path.join(os.path.dirname(fileDirPath),'croped')):
         os.makedirs(os.path.join(os.path.dirname(fileDirPath),'croped'))
     # print(output_path)
-
     cv2_imwrite(output_path,cropped_image)
 
 def renameImgNameByJson(imagedir,labeldir):
@@ -125,6 +135,8 @@ if __name__ == "__main__":
     # step 1:图片中心裁剪:
     imgDirPath=r''
     batchCropImg(imgDirPath)
+
     # step 2:筛选合适的crop的图片后,将dir输入下方
     labelDirPath=r''
+    renameImgNameByJson(os.path.join(os.path.dirname(imgDirPath),'croped'),labelDirPath)
 

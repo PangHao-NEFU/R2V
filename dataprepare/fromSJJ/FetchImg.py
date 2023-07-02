@@ -15,14 +15,13 @@ from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.common.exceptions import NoSuchElementException, TimeoutException, ElementClickInterceptedException
 import requests
-import asyncio
-
+from tqdm import tqdm
 
 def FetchJsonFromSJJ():
     cityNumbers = {
-        # "上海": "310100",       done
-        # "北京": "110100",      done
-        "天津": "120100",
+        # "上海": "310100",           done
+        "北京": "110100",
+        # "天津": "120100",         done
         # "哈尔滨":"230100",
         # "南京":"320100",
         # "广州":"440100",
@@ -38,7 +37,7 @@ def FetchJsonFromSJJ():
         # 20页
         print("下载json开始!")
         for page in range(0, 6):
-            print(f"当前下载epoch为:{page}")
+            print(f"当前下载epoch为:{page}\n")
             postBody = {"attributes": [f"{cityNum}"],
                         "cityId": f"{cityNum}",
                         "searchText": "",
@@ -73,7 +72,8 @@ def FetchJsonFromSJJ():
                                      headers=headers)
             # print(response.content, response.status_code)  # 这里可以拿到json和有水印的img
             try:
-                for i in response.json().get("data").get("data"):
+                floorPlans=response.json().get("data").get("data")
+                for i in tqdm(floorPlans):
                     idList.append(i.get("id"))
                     filePath = f"./data/json/{cityName}"
                     fileName = f"{i.get('name') + '@' + i.get('id') + '.json'}"
@@ -84,7 +84,7 @@ def FetchJsonFromSJJ():
                     if not os.path.exists('./history'):
                         os.makedirs('./history')
 
-                    if not checkStrInFile(i.get("name"), f'./history/originid.txt'):
+                    if not checkNameInFile(i.get("name"), f'./history/originid.txt'):
                         downloadJson(fileUrl, os.path.join(filePath, fileName))
                         with open(f'./history/originid.txt', 'a+') as f:
                             # origin文件里每行存两个内容,id和 name,如果name冲突,同样不保存id
@@ -114,11 +114,17 @@ def downloadJson(url, fileName):
     if not os.path.exists(fileName):
 
         try:
-            urllib.request.urlretrieve(url, fileName)
+            downloadFile(url, fileName)
             print("json下载完成！")
-        except urllib.error.URLError as e:
+        except Exception as e:
             print('下载失败!', e)
 
+def downloadFile(url,filePath):
+    if not os.path.exists(os.path.dirname(filePath)):
+        os.makedirs(os.path.dirname(filePath))
+    resp=requests.get(url)
+    with open(filePath,'wb') as f:
+        f.write(resp.content)
 
 def updateHistoryStack(driver, historyStack):
     """
@@ -181,30 +187,42 @@ def AuthCheck(driver):
         pass
 
 
-def checkStrInFile(checkstr, filePath):
+def checkIdInFile(floorPlanId, filePath):
     if not os.path.exists(filePath):
         file = open(filePath, "w")
         file.close()
     with open(filePath, "r") as f:
         for line in f.readlines():
-            if checkstr.strip() == line.strip().split('\t')[-1]:
+            if floorPlanId.strip() in line.strip():
+                return True
+    return False
+
+def checkNameInFile(name,filePath):
+    if not os.path.exists(filePath):
+        file = open(filePath, "w")
+        file.close()
+    with open(filePath, "r") as f:
+        for line in f.readlines():
+            if name.strip() == line.strip().split('\t')[-1]:
                 return True
     return False
 
 
 # 直接拿接口
-def getOriginFloorImgFromSSJv2(init=True, jsonOnly=False):
+def getOriginFloorImgFromSSJv2(init,imgDownDir, jsonOnly=False):
     if init:
         FetchJsonFromSJJ()
+
+    jsHankFile = open('./stealth.min.js', mode='r')
+    js = jsHankFile.read()
 
     origin = open('./history/originid.txt', 'r')
     originInfoList = origin.readlines()
     finished = open('./history/finish.txt', 'r')
     finishIdList = finished.readlines()
-    jsHankFile = open('./stealth.min.js', mode='r')
-    js = jsHankFile.read()
+
     #   图片保存路径(绝对路径)
-    chromeDownloadPath = "C:\\Users\\Pang Hao\\Downloads"
+    chromeDownloadPath = imgDownDir
     if not os.path.exists(chromeDownloadPath):
         os.makedirs(chromeDownloadPath)
     userData = f"C:\\Users\\Pang Hao\\AppData\\Local\\Google\\Chrome\\User Data"
@@ -228,8 +246,8 @@ def getOriginFloorImgFromSSJv2(init=True, jsonOnly=False):
         cmd_args={'source': js},
         cmd="Page.addScriptToEvaluateOnNewDocument",
     )
-    for info in originInfoList:  # 待下载户型id
-        if checkStrInFile(info.strip().split('\t')[0], './history/finish.txt'):  # 已完成的户型id
+    for info in originInfoList:  # 待下载户型id  name
+        if checkIdInFile(info.strip().split('\t')[0], './history/finish.txt'):  # 已完成的户型id
             continue
         else:
             print("当前任务为: ", info.strip())
@@ -355,5 +373,7 @@ def getOriginFloorImgFromSSJv2(init=True, jsonOnly=False):
 
 
 if __name__ == "__main__":
-    getOriginFloorImgFromSSJv2(True)
+    imgDownloadDir=r"C:\Users\Pang Hao\Downloads"
+    labelDownloadDir=r''
+    getOriginFloorImgFromSSJv2(True,imgDownloadDir)
     # FetchJsonFromSJJ()
