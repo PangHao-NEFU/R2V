@@ -150,6 +150,8 @@ def removeInvaild(errorfilePath, combinedDir):
                 if os.path.exists(os.path.join(combinedDir, line)):
                     shutil.rmtree(os.path.join(combinedDir, line))
                     print(f"Removed successfully:{line}\n")
+                else:
+                    print(f"Folder does not exist!{line}\n")
             except OSError as e:
                 print(f"{line}文件夹删除失败!,错误原因:{e}\n")
 
@@ -236,16 +238,17 @@ if __name__ == "__main__":
 
     # step 2: 筛选合适的crop的图片后,将dir输入下方
     labelDirPath = r'C:\Users\Pang Hao\Desktop\sjjdataset2\json'
-    renameImgNameByJson(os.path.join(os.path.dirname(imgDirPath),'croped'),labelDirPath)
+    # renameImgNameByJson(os.path.join(os.path.dirname(imgDirPath),'croped'),labelDirPath)
 
     # step 3: 使用sjj_v2生成训练数据
 
     # step 6: 手工筛选数据
-    # folder_path = "./sjj_v2/result"
-    # output_file_path = "./history/errorfile.txt"
+    folder_path = "./sjj_v2/result"
+    output_file_path = "./history/errorfile.txt"
     # browse_images(folder_path, output_file_path)
 
     # step 4: 筛选出有效数据:
-    # removeInvaild(r"./history/errorfile.txt", r"C:\Users\Pang Hao\Desktop\sjjdataset1\result")
+    combinedDir=r"C:\Users\Pang Hao\Desktop\sjjdataset2\result"
+    removeInvaild(r"./history/errorfile.txt", combinedDir)
 
     # step 5 : 重新使用sjj_v2生成训练数据

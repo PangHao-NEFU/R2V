@@ -375,5 +375,5 @@ def getOriginFloorImgFromSSJv2(init,imgDownDir, jsonOnly=False):
 if __name__ == "__main__":
     imgDownloadDir=r"C:\Users\Pang Hao\Downloads"
     labelDownloadDir=r''
-    getOriginFloorImgFromSSJv2(False,imgDownloadDir)
+    getOriginFloorImgFromSSJv2(True,imgDownloadDir)
     # FetchJsonFromSJJ()
