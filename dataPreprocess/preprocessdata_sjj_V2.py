@@ -10,6 +10,8 @@ import random
 from tqdm import tqdm
 import pytesseract
 
+from dataPreprocess.imgutils import cv2_imread
+
 global_index = -1000
 global_index_p = 0
 
@@ -296,7 +298,7 @@ class PreprocessDataSJJ(object):
 
     def format_point_info(self, jason_data):
         try:
-            img_data = cv2.imread(self.cad_image_resized_file_path)
+            img_data = cv2_imread(self.cad_image_resized_file_path)
             if os.path.basename(self.cad_image_resized_file_path).split('.')[-1] == 'png':
                 img_data = cv2.cvtColor(img_data, cv2.COLOR_RGBA2BGR)
             # img_data必须为三通道
@@ -361,6 +363,11 @@ class PreprocessDataSJJ(object):
 
         except Exception as err:
             print(err)
+            print("错误文件:", os.path.basename(self.img_file_path))
+            if not os.path.exists('./history'):
+                os.makedirs("./history")
+            with open("./history/errorfile.txt", 'a') as f:
+                f.write(os.path.splitext(os.path.basename(self.img_file_path))[0] + '\n')
 
     def _parse_corner_flat_window2(self, window_item):
         window_part_info = window_item["partsInfo"]
@@ -467,8 +474,8 @@ class PreprocessDataSJJ(object):
         x_length = np.abs(window_item["XLength"])
         y_length = np.abs(window_item["YLength"])
         x_scale = np.abs(window_item["XScale"])
-        y_scale = np.abs(window_item.get("YScale") or 1)        # 这里会报错,没有YScale
-        z_rotation_value = window_item.get("ZRotation") or 360    # 报错,没有ZRotation
+        y_scale = np.abs(window_item.get("YScale") or 1)  # 这里会报错,没有YScale
+        z_rotation_value = window_item.get("ZRotation") or 360  # 报错,没有ZRotation
         length = x_length * x_scale if x_length > y_length else y_length * y_scale
         z_rotation_value = 3.1415926535 * z_rotation_value / 180.0
         start_point = Point("-1", x - 0.5 * length * np.cos(z_rotation_value),
@@ -1287,13 +1294,16 @@ class PreprocessDataSJJ(object):
                     round(max(point_1.y, point_2.y)))
 
                 if line_dim == 0:
-                    image[max(fixedValue - line_width, 0):min(fixedValue + line_width, self.floor_plan_img_height),minValue:maxValue + 1, :] = line_color
+                    image[max(fixedValue - line_width, 0):min(fixedValue + line_width, self.floor_plan_img_height),
+                    minValue:maxValue + 1, :] = line_color
 
                     cv2.putText(image, str(wall_line.p_id), (int(0.5 * (maxValue + minValue)), fixedValue),
                                 cv2.FONT_HERSHEY_COMPLEX_SMALL, 1,
                                 (0, 255, 0))
                 elif line_dim == 1:
-                    image[minValue:maxValue + 1,max(fixedValue - line_width, 0):min(fixedValue + line_width, self.floor_plan_img_width),:] = line_color
+                    image[minValue:maxValue + 1,
+                    max(fixedValue - line_width, 0):min(fixedValue + line_width, self.floor_plan_img_width),
+                    :] = line_color
                     # #
                     cv2.putText(image, str(wall_line.p_id), (fixedValue, int(0.5 * (maxValue + minValue))),
                                 cv2.FONT_HERSHEY_COMPLEX_SMALL, 1,
@@ -1316,7 +1326,7 @@ class PreprocessDataSJJ(object):
             if not os.path.exists(self.img_file_path) or not os.path.exists(self.json_file_path):
                 return None
 
-        # Load Image Data.
+            # Load Image Data.
             img_data = cv2.imread(self.img_file_path)
             img_data = cv2.cvtColor(img_data, cv2.COLOR_RGBA2BGR)
             self.floor_plan_img_height = img_data.shape[0]
@@ -1404,8 +1414,8 @@ class PreprocessDataSJJ(object):
         originalImg = cv2.imread(self.img_file_path)
         cvtOriginalImg = cv2.cvtColor(originalImg, cv2.COLOR_RGBA2BGR)
         height, width = cvtOriginalImg.shape[:2]
-        # 裁剪图片上方1/4的区域以便更好使用ocr识别比例数字
-        crop_height = int(height / 4)
+        # 裁剪图片上方1/5的区域以便更好使用ocr识别比例数字
+        crop_height = int(height / 5)
         cropped_Img = cvtOriginalImg[:crop_height, :]
         # cv2.imshow("crop", cropped_Img)
         # cv2.waitKey(0)
@@ -1415,33 +1425,41 @@ class PreprocessDataSJJ(object):
         edges = cv2.Canny(grayImg, 300, 500, apertureSize=3)
         lines = cv2.HoughLinesP(edges, 1, np.pi / 180, threshold=100, minLineLength=100, maxLineGap=10)
         # print(lines,lines.shape)
-        digits = digits.split('\n')     # digits中会有很多奇奇怪怪的东西,过滤一下
-        filteredDigits=[]
+        digits = digits.split('\n')  # digits中会有很多奇奇怪怪的东西,过滤一下
+        filteredDigits = []
         for d in digits:
             try:
                 int(d)
             except ValueError:
                 continue
             filteredDigits.append(int(d))
-        maxDigits=max(filteredDigits)
+        maxDigits = max(filteredDigits)
         # print(digits)
         # 过滤直线
         horizontal = []
         for line in lines:
             x1, y1, x2, y2 = line[0]
             slope = (y2 - y1) / (x2 - x1 + 1e-5)  # 避免除以零
-            if abs(slope) < 0.1:  # 过滤斜率接近于水平的直线
+            if abs(slope) < 0.1:  # 过滤出斜率接近于水平的直线
                 dis = sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
-                # 图片边缘也会被识别为直线!
-                if dis < min(height,width)-150:
+                # 图片边缘也会被识别为直线!,阈值控制在150像素左右
+                if dis < min(height, width) - 150:
                     horizontal.append(dis)
                     # cv2.line(iimg, (x1, y1), (x2, y2), (0, 255, 0), 2)  # 绘制水平线
 
         # print(sorted(horizontal,reverse=True))
         maxLineLength = sorted(horizontal, reverse=True)[0]
         ratio = ((maxLineLength * 1000) / float(maxDigits)) * float(512 / 3000)
-        print("ratio:", ratio)
-        # 像素/米
+        print("ratio:", ratio, '\n')
+        # print('img:',os.path.basename(self.img_file_path))
+        # 像素/米,y的偏移量,每张图并不是严格按中心出图
+        if ratio is None:
+            print(f"ratio计算出错!digits:{digits},maxLineLength:{maxLineLength}\n")
+            if not os.path.exists('./history'):
+                os.makedirs("./history")
+            with open("./history/errorfile.txt", 'a') as f:
+                f.write(os.path.splitext(os.path.basename(self.img_file_path))[0] + '\n')
+
         return 0, -8.1, ratio
 
     def _save_training_data(self):

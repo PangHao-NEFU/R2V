@@ -112,7 +112,6 @@ def downloadJson(url, fileName):
     if not os.path.exists(os.path.dirname(fileName)):
         os.makedirs(os.path.dirname(fileName))
     if not os.path.exists(fileName):
-
         try:
             downloadFile(url, fileName)
             print("json下载完成！")
@@ -125,6 +124,7 @@ def downloadFile(url,filePath):
     resp=requests.get(url)
     with open(filePath,'wb') as f:
         f.write(resp.content)
+        f.flush()
 
 def updateHistoryStack(driver, historyStack):
     """
@@ -375,5 +375,5 @@ def getOriginFloorImgFromSSJv2(init,imgDownDir, jsonOnly=False):
 if __name__ == "__main__":
     imgDownloadDir=r"C:\Users\Pang Hao\Downloads"
     labelDownloadDir=r''
-    getOriginFloorImgFromSSJv2(True,imgDownloadDir)
+    getOriginFloorImgFromSSJv2(False,imgDownloadDir)
     # FetchJsonFromSJJ()

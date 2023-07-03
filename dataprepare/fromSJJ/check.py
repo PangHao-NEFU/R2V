@@ -6,9 +6,16 @@ def renameImgName(dirPath):
     files = os.listdir(dirPath)
     for file in files:
         oldPath = os.path.join(dirPath, file)
-        newPath = os.path.join(dirPath, file.split('-')[0] + '.png')
-        if not os.path.exists(newPath):
-            os.rename(oldPath, newPath)
+        if len(file.split('-'))>1:
+            newPath = os.path.join(dirPath, file.split('-')[0] + '.png')
+            if not os.path.exists(newPath):
+                os.rename(oldPath, newPath)
+
+def rename(dirPath):
+    files=os.listdir(dirPath)
+    for file in files:
+        oldPath = os.path.join(dirPath, file)
+
 
 
 def filterLabel(imgdir, labeldir, labeltargetdir):
@@ -110,4 +117,5 @@ if __name__ == '__main__':
     # removeDouble("C:\\Users\\Pang Hao\\Desktop\\dataset2\\filtered")
     # filterValidJson("C:\\Users\\Pang Hao\\Desktop\\dataset2\\filtered","C:\\Users\\Pang Hao\\Desktop\\dataset2\\json")
     # renameImgName(r'C:\Users\Pang Hao\Desktop\sjjdataset3\img')
-    whoisnotin(r'C:\Users\Pang Hao\Desktop\sjjdataset3\img',r'C:\Users\Pang Hao\Desktop\sjjdataset3\json')
+    # whoisnotin(r'C:\Users\Pang Hao\Desktop\sjjdataset3\img',r'C:\Users\Pang Hao\Desktop\sjjdataset3\json')
+    renameImgName(r"C:\Users\Pang Hao\Desktop\sjjdataset2\croped")
