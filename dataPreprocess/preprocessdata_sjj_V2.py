@@ -11,6 +11,7 @@ from tqdm import tqdm
 import pytesseract
 
 from dataPreprocess.imgutils import cv2_imread
+from dataPreprocess.imgutils import cv2_imwrite
 
 global_index = -1000
 global_index_p = 0

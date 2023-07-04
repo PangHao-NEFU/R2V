@@ -8,6 +8,8 @@ import pytesseract
 from PIL import Image
 import shutil
 from tqdm import tqdm
+import sys
+
 from dataprepare.fromSJJ.check import *
 
 
@@ -169,7 +171,7 @@ def write_folder_name():
         print(f"errorid保存成功!{current_folder}\n")
 
 
-def browse_images(folder_path, file_path):
+def browse_images(folder_path:str, file_path:str):
     global current_folder, output_file
 
     output_file = file_path
@@ -249,6 +251,7 @@ if __name__ == "__main__":
 
     # step 4: 筛选出有效数据:
     combinedDir=r"C:\Users\Pang Hao\Desktop\sjjdataset2\result"
-    removeInvaild(r"./history/errorfile.txt", combinedDir)
+    # removeInvaild(r"./history/errorfile.txt", combinedDir)
 
     # step 5 : 重新使用sjj_v2生成训练数据
+    print("hello world")

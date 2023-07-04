@@ -10,7 +10,7 @@ class ConvBlock(nn.Module):
 
         self.use_bn = use_bn
         
-        if padding == None:
+        if not padding:
             padding = (kernel_size - 1) // 2
             pass
         if mode == 'conv':

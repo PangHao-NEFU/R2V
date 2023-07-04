@@ -4,6 +4,8 @@ import copy
 from dataPreprocess.utils import *
 from skimage import measure
 
+from models.utils.utils import *
+
 GAPS = {'wall_extraction': 5, 'door_extraction': 5, 'icon_extraction': 5, 'wall_neighbor': 5, 'door_neighbor': 5, 'icon_neighbor': 5, 'wall_conflict': 5, 'door_conflict': 5, 'icon_conflict': 5, 'wall_icon_neighbor': 5, 'wall_icon_conflict': 5, 'wall_door_neighbor': 5, 'door_point_conflict': 5}
 DISTANCES = {'wall_icon': 5, 'point': 5, 'wall': 10, 'door': 5, 'icon': 5}
 LENGTH_THRESHOLDS = {'wall': 5, 'door': 5, 'icon': 5}
