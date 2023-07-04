@@ -1,7 +1,8 @@
 import torch
 from torch import nn
 from dataPreprocess.utils import *
-from baseinc import fpLog
+# from baseinc import fpLog
+
 
 ## Conv + bn + relu
 class ConvBlock(nn.Module):
@@ -9,20 +10,25 @@ class ConvBlock(nn.Module):
         super(ConvBlock, self).__init__()
 
         self.use_bn = use_bn
-        
+
         if not padding:
             padding = (kernel_size - 1) // 2
             pass
         if mode == 'conv':
-            self.conv = nn.Conv2d(in_planes, out_planes, kernel_size=kernel_size, stride=stride, padding=padding, bias=False)
+            self.conv = nn.Conv2d(in_planes, out_planes, kernel_size=kernel_size, stride=stride, padding=padding,
+                                  bias=False)
         elif mode == 'deconv':
-            self.conv = nn.ConvTranspose2d(in_planes, out_planes, kernel_size=kernel_size, stride=stride, padding=padding, bias=False)
+            self.conv = nn.ConvTranspose2d(in_planes, out_planes, kernel_size=kernel_size, stride=stride,
+                                           padding=padding, bias=False)
         elif mode == 'conv_3d':
-            self.conv = nn.Conv3d(in_planes, out_planes, kernel_size=kernel_size, stride=stride, padding=padding, bias=False)
+            self.conv = nn.Conv3d(in_planes, out_planes, kernel_size=kernel_size, stride=stride, padding=padding,
+                                  bias=False)
         elif mode == 'deconv_3d':
-            self.conv = nn.ConvTranspose3d(in_planes, out_planes, kernel_size=kernel_size, stride=stride, padding=padding, bias=False)
+            self.conv = nn.ConvTranspose3d(in_planes, out_planes, kernel_size=kernel_size, stride=stride,
+                                           padding=padding, bias=False)
         else:
-            fpLog.info('conv mode not supported', mode)
+            # fpLog.info('conv mode not supported', mode)
+            print('conv mode not supported', mode)
             exit(1)
             pass
         if self.use_bn:
@@ -34,31 +40,33 @@ class ConvBlock(nn.Module):
             pass
         self.relu = nn.ReLU(inplace=True)
         return
-   
+
     def forward(self, inp):
-        #return self.relu(self.conv(inp))
+        # return self.relu(self.conv(inp))
         if self.use_bn:
             return self.relu(self.bn(self.conv(inp)))
         else:
             return self.relu(self.conv(inp))
 
-## The pyramid module from pyramid scene parsing
+
+# The pyramid module from pyramid scene parsing
 class PyramidModule(nn.Module):
-    #def __init__(self, options, in_planes, middle_planes, scales=[32, 16, 8, 4]):
+    # def __init__(self, options, in_planes, middle_planes, scales=[32, 16, 8, 4]):
     def __init__(self, options, in_planes, middle_planes, scales=[64, 32, 16, 8]):
         super(PyramidModule, self).__init__()
-        
+
         self.pool_1 = torch.nn.AvgPool2d((scales[0] * options.height // options.width, scales[0]))
-        self.pool_2 = torch.nn.AvgPool2d((scales[1] * options.height // options.width, scales[1]))        
+        self.pool_2 = torch.nn.AvgPool2d((scales[1] * options.height // options.width, scales[1]))
         self.pool_3 = torch.nn.AvgPool2d((scales[2] * options.height // options.width, scales[2]))
-        self.pool_4 = torch.nn.AvgPool2d((scales[3] * options.height // options.width, scales[3]))        
+        self.pool_4 = torch.nn.AvgPool2d((scales[3] * options.height // options.width, scales[3]))
         self.conv_1 = ConvBlock(in_planes, middle_planes, kernel_size=1, use_bn=False)
         self.conv_2 = ConvBlock(in_planes, middle_planes, kernel_size=1)
         self.conv_3 = ConvBlock(in_planes, middle_planes, kernel_size=1)
         self.conv_4 = ConvBlock(in_planes, middle_planes, kernel_size=1)
-        self.upsample = torch.nn.Upsample(size=(scales[0] * options.height // options.width, scales[0]), mode='bilinear')
+        self.upsample = torch.nn.Upsample(size=(scales[0] * options.height // options.width, scales[0]),
+                                          mode='bilinear')
         return
-    
+
     def forward(self, inp):
         x_1 = self.upsample(self.conv_1(self.pool_1(inp)))
         x_2 = self.upsample(self.conv_2(self.pool_2(inp)))
@@ -68,12 +76,14 @@ class PyramidModule(nn.Module):
         return out
 
 
-## The module to compute plane depths from plane parameters
+# The module to compute plane depths from plane parameters
 def calcPlaneDepthsModule(width, height, planes, metadata, return_ranges=False):
-    urange = (torch.arange(width, dtype=torch.float32).cuda().view((1, -1)).repeat(height, 1) / (float(width) + 1) * (metadata[4] + 1) - metadata[2]) / metadata[0]
-    vrange = (torch.arange(height, dtype=torch.float32).cuda().view((-1, 1)).repeat(1, width) / (float(height) + 1) * (metadata[5] + 1) - metadata[3]) / metadata[1]
+    urange = (torch.arange(width, dtype=torch.float32).cuda().view((1, -1)).repeat(height, 1) / (float(width) + 1) * (
+            metadata[4] + 1) - metadata[2]) / metadata[0]
+    vrange = (torch.arange(height, dtype=torch.float32).cuda().view((-1, 1)).repeat(1, width) / (float(height) + 1) * (
+            metadata[5] + 1) - metadata[3]) / metadata[1]
     ranges = torch.stack([urange, torch.ones(urange.shape).cuda(), -vrange], dim=-1)
-    
+
     planeOffsets = torch.norm(planes, dim=-1, keepdim=True)
     planeNormals = planes / torch.clamp(planeOffsets, min=1e-4)
 
@@ -86,23 +96,24 @@ def calcPlaneDepthsModule(width, height, planes, metadata, return_ranges=False):
     return planeDepths
 
 
-## The module to compute depth from plane information
+# The module to compute depth from plane information
 def calcDepthModule(width, height, planes, segmentation, non_plane_depth, metadata):
     planeDepths = calcPlaneDepthsModule(width, height, planes, metadata)
     allDepths = torch.cat([planeDepths.transpose(-1, -2).transpose(-2, -3), non_plane_depth], dim=1)
     return torch.sum(allDepths * segmentation, dim=1)
 
 
-## Compute matching with the auction-based approximation algorithm
+# Compute matching with the auction-based approximation algorithm
 def assignmentModule(W):
     O = calcAssignment(W.detach().cpu().numpy())
     return torch.from_numpy(O).cuda()
 
+
 def calcAssignment(W):
     numOwners = int(W.shape[0])
-    numGoods = int(W.shape[1])    
+    numGoods = int(W.shape[1])
     P = np.zeros(numGoods)
-    O = np.full(shape=(numGoods, ), fill_value=-1)
+    O = np.full(shape=(numGoods,), fill_value=-1)
     delta = 1.0 / (numGoods + 1)
     queue = list(range(numOwners))
     while len(queue) > 0:
@@ -120,7 +131,8 @@ def calcAssignment(W):
         continue
     return O
 
-## Get one-hot tensor
+
+# Get one-hot tensor
 def oneHotModule(inp, depth):
     inpShape = [int(size) for size in inp.shape]
     inp = inp.view(-1)
@@ -129,11 +141,12 @@ def oneHotModule(inp, depth):
     out = out.view(inpShape + [depth])
     return out
 
-## Warp image
+
+# Warp image
 def warpImages(options, planes, images, transformations, metadata):
     planeDepths, ranges = calcPlaneDepthsModule(options.width, options.height, planes, metadata, return_ranges=True)
-    fpLog.info(planeDepths.shape, ranges.shape, transformations.shape)
-    exit(1)
+    # fpLog.info(planeDepths.shape, ranges.shape, transformations.shape)
+    # exit(1)
     XYZ = planeDepths.unsqueeze(-1) * ranges.unsqueeze(-2)
     XYZ = torch.cat([XYZ, torch.ones([int(size) for size in XYZ.shape[:-1]] + [1]).cuda()], dim=-1)
     XYZ = torch.matmul(XYZ.unsqueeze(-3), transformations.unsqueeze(-4).unsqueeze(-4))
