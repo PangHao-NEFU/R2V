@@ -28,6 +28,7 @@ class PreprocessCAD(object):
             pass
 
 if __name__ == "__main__":
-    cadFileDirPath=r"C:\Users\Pang Hao\Desktop\cad\cad"
-    cadObject = PreprocessCAD(cadFileDirPath)
-    cadObject.analysisCadFile()
+    # cadFileDirPath=r"C:\Users\Pang Hao\Desktop\cad\cad"
+    # cadObject = PreprocessCAD(cadFileDirPath)
+    # cadObject.analysisCadFile()
+    ezdxf.readfile(r"C:\Users\Pang Hao\Desktop\cad\cad\02.dwg")

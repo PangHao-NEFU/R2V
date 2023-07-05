@@ -673,8 +673,6 @@ class PreprocessDataSJJ(object):
 
             z_rotation_value = opening_item["ZRotation"] + 360
             relative_rotation_value = z_rotation_value / 90.0
-            if relative_rotation_value - np.floor(relative_rotation_value) > 0.2:
-                continue
 
             # 将CornerFlatWindow和CornerWindow处理成两个窗户。
             if class_type_name == "HSCore.Model.Window" or \
@@ -1305,11 +1303,11 @@ class PreprocessDataSJJ(object):
             self.floor_plan_img_height = img_data.shape[0]
             self.floor_plan_img_width = img_data.shape[1]
 
-            # Load Json Data.
+            # Load Json Data.读取json文件
             with open(self.json_file_path, 'r', encoding=r'UTF-8') as load_f:
                 floorplan_json_data = json.load(load_f)
 
-            # Parse the Json Data.
+            # Parse the Json Data.解析json数据
             self._parse_items_data_dict(floorplan_json_data)
 
             # 场景数据。

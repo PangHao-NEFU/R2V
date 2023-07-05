@@ -339,7 +339,7 @@ class PreprocessDataSJJ(object):
                 cur_wall_point.y = y
 
             for cur_wall_point in self.all_door_points:
-                x = int(cur_wall_point.x * self.factor + half_width + x_offset)
+                x = int(cur_wall_point.x * self.factor + half_width + x_offset+0.05)
                 y = -int(cur_wall_point.y * self.factor - half_height - y_offset)
 
                 x = max(x, 0)
@@ -696,8 +696,6 @@ class PreprocessDataSJJ(object):
             else:
                 z_rotation_value = opening_item["ZRotation"] + 360
             relative_rotation_value = z_rotation_value / 90.0
-            if relative_rotation_value - np.floor(relative_rotation_value) > 0.2:
-                continue
 
             # 将CornerFlatWindow和CornerWindow处理成两个窗户。
             if class_type_name == "Window" or \
@@ -1461,7 +1459,7 @@ class PreprocessDataSJJ(object):
             with open("./history/errorfile.txt", 'a') as f:
                 f.write(os.path.splitext(os.path.basename(self.img_file_path))[0] + '\n')
 
-        return 0, -8.1, ratio
+        return 0.1, -8.1, ratio
 
     def _save_training_data(self):
         self._save_line_points(self.all_wall_segments, type_name="wall")
