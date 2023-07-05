@@ -484,13 +484,18 @@ class PreprocessDataSJJ(object):
         end_point = Point("-1", x + 0.5 * length * np.cos(z_rotation_value),
                           y - 0.5 * length * np.sin(z_rotation_value))
 
-        host_wall_direction = host_wall.calc_wall_direction()
+        host_wall_direction = self.calc_line_dim(host_wall.start_point, host_wall.end_point)
+
         if host_wall_direction == 0:  # 水平墙
             start_point.y = host_wall.start_point.y
             end_point.y = host_wall.start_point.y
-        else:  # 竖直墙
+        elif host_wall_direction==1:  # 竖直墙
             start_point.x = host_wall.start_point.x
             end_point.x = host_wall.start_point.x
+        elif host_wall_direction==-1: # 斜墙
+            #todo:斜墙处理
+            pass
+
 
         start_point.window_type = 0
         end_point.window_type = 0
@@ -799,14 +804,18 @@ class PreprocessDataSJJ(object):
         return np.sqrt((self.start_point.x - self.end_point.x) * (self.start_point.x - self.end_point.x) +
                        (self.start_point.y - self.end_point.y) * (self.start_point.y - self.end_point.y))
 
-    def calc_line_dim(self, point_1, point_2, threshold=5, space_flag=False):
-        # space_flag.
+
+    def calc_line_dim(self, point_1, point_2, threshold=1, space_flag=False):
+        # space_flag. 斜墙:-1
         if not space_flag:
             if np.abs(point_2.x - point_1.x) > threshold and np.abs(point_2.y - point_1.y) > threshold:
                 return -1
-
+            elif (np.abs(point_2.y-point_1.y) /(np.abs(point_2.x-point_1.x)+0.00001)>np.tan(15*3.1415926/360)) and (np.abs(point_2.y-point_1.y) / (np.abs(point_2.x-point_1.x)+0.00001)<np.tan(75*3.1415926/360)):
+                return -1
+        # 水平墙:0
         if np.abs(point_2.x - point_1.x) > np.abs(point_2.y - point_1.y):
             return 0
+        # 竖直墙:1
         else:
             return 1
 
@@ -1381,11 +1390,13 @@ class PreprocessDataSJJ(object):
             # 画门点
             self.draw_points(self.all_door_points, background_img_data=back_groud_img_data, file_name="DoorPoint")
             back_groud_img_data = img_data.copy()
+
             # 画窗
             self.draw_points(self.all_opening_points, background_img_data=back_groud_img_data, file_name="OpeningPoint")
             back_groud_img_data = img_data.copy()
             self.draw_points(self.all_hole_points, line_width=2, background_img_data=back_groud_img_data,
                              file_name="HolePoint")
+
             back_groud_img_data = img_data.copy()
             self.draw_lines(self.all_wall_segments, line_width=2, background_img_data=back_groud_img_data,
                             file_name="WallLines")
@@ -1546,14 +1557,17 @@ class WallLine(Entity):
                 self.start_point = self.end_point
                 self.end_point = tmp
 
-    def calc_line_dim(self, point_1, point_2, threshold=5, space_flag=False):
-        # space_flag.
+    def calc_line_dim(self, point_1, point_2, threshold=1, space_flag=False):
+        # space_flag. 斜墙:-1
         if not space_flag:
             if np.abs(point_2.x - point_1.x) > threshold and np.abs(point_2.y - point_1.y) > threshold:
                 return -1
-
+            elif (np.abs(point_2.y-point_1.y) /(np.abs(point_2.x-point_1.x)+0.00001)>np.tan(15*3.1415926/360)) and (np.abs(point_2.y-point_1.y) / (np.abs(point_2.x-point_1.x)+0.00001)<np.tan(75*3.1415926/360)):
+                return -1
+        # 水平墙:0
         if np.abs(point_2.x - point_1.x) > np.abs(point_2.y - point_1.y):
             return 0
+        # 竖直墙:1
         else:
             return 1
 
