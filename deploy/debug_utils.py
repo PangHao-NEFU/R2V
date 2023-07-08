@@ -63,7 +63,7 @@ class DebugInfo(object):
                     if img_transfor_obj is not None:
                         cur_heatmap = img_transfor_obj.mapping_2_original_image_size(cur_heatmap)
                     cv2_write_image_light(cur_heatmap, cur_heatmap_file_path)
-                    if i<13:
+                    if i>13:
                         all_cur_heatmaps.append(cur_heatmap)
             temp = all_cur_heatmaps[len(all_cur_heatmaps)-1]
             for i in range(len(all_cur_heatmaps)-1):
@@ -89,9 +89,9 @@ class WallBuilderDataDump(object):
         if not os.path.exists(self.wall_builder_obj.options.res_folder_path):
             os.makedirs(self.wall_builder_obj.options.res_folder_path)
         cv2_write_image(self.wall_builder_obj.floor_plan_img_data, file_path)
-        self.wall_builder_obj.floor_plan_img_data = np.ones(
-            (self.wall_builder_obj.floor_plan_img_height, self.wall_builder_obj.floor_plan_img_width, 3),
-            np.uint8) * 255
+        # self.wall_builder_obj.floor_plan_img_data = np.ones(
+        #     (self.wall_builder_obj.floor_plan_img_height, self.wall_builder_obj.floor_plan_img_width, 3),
+        #     np.uint8) * 255
 
         back_ground_img = self.wall_builder_obj.floor_plan_img_data.copy()
         self._draw_wall_lines(self.wall_builder_obj.all_wall_lines, line_width=2,
@@ -156,34 +156,13 @@ class WallBuilderDataDump(object):
             x, y = cur_wall_point.x, cur_wall_point.y
             img_mask[max(y - line_width, 0):min(y + line_width, self.wall_builder_obj.floor_plan_img_height - 1),
             max(x - line_width, 0):min(x + line_width, self.wall_builder_obj.floor_plan_img_width - 1)] = line_color
-            cv2.putText(img_mask, str(cur_wall_point.id), (x, y), cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, color)
+            cv2.putText(img_mask, (str(x)+','+str(y)), (x, y), cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, color)
 
         file_path = self._get_file_path(file_name)
         cv2_write_image(img_mask, file_path)
 
     def _get_file_path(self, file_name):
         return os.path.join(self.wall_builder_obj.options.res_folder_path, "{0}".format(file_name))
-
-    def _draw_room_area(self, wall_builder_obj, back_ground_img=None):
-
-        import WallBuilderFloorplan
-        if not isinstance(wall_builder_obj, WallBuilderFloorplan.FloorplanWallBuilder):
-            return
-
-        if not os.path.exists(self.wall_builder_obj.options.res_folder_path):
-            os.makedirs(self.wall_builder_obj.options.res_folder_path)
-
-        image = None
-        if back_ground_img is None:
-            image = np.ones((self.wall_builder_obj.floor_plan_img_height, self.wall_builder_obj.floor_plan_img_width, 3), np.uint8) * 0
-        else:
-            image = back_ground_img
-
-        for cur_room in wall_builder_obj.floorplan_obj.all_rooms:
-            x, y = cur_room.get_room_center()
-            actual_area = cur_room.actual_area
-            cv2.putText(image, str(int(actual_area * 100.0) / 100.0), (x, y), cv2.FONT_HERSHEY_COMPLEX_SMALL,
-                        1, (0, 0, 255))
 
     def _draw_wall_lines_range_box(self, wall_lines, back_ground_img=None, rgb_color=[255, 0, 0]):
         if not os.path.exists(self.wall_builder_obj.options.res_folder_path):

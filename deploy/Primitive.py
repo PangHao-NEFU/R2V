@@ -719,7 +719,7 @@ class WallLine(object):
             line_slope = np.abs((self.end_point.y - self.start_point.y) / (self.end_point.x - self.start_point.x))
             opening_slope = np.abs((opening.end_point.y - self.start_point.y) / (opening.end_point.x - self.start_point.x))
 
-            if np.abs(line_slope - opening_slope) > 0.1:
+            if np.abs(line_slope - opening_slope) > 0.5:
                 return False
             if opening.get_wall_length() < self.get_wall_length():
                 return True

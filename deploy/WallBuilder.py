@@ -196,7 +196,7 @@ class Builder(object):
                     cur_sub_category = (i - 28) % 4
 
                 cur_heat_map_img = self.transform_image_data(cur_heat_map_img)
-                all_door_points.extend(self._extract_junctions(cur_heat_map_img, 100, cur_category, cur_sub_category,
+                all_door_points.extend(self._extract_junctions(cur_heat_map_img, 200, cur_category, cur_sub_category,
                                                                self.heat_map_wall_threshold, junction_class=2))
 
             # 去除水平｜垂直类型的重复点，斜墙类别的点暂不做处理
@@ -213,14 +213,22 @@ class Builder(object):
             self._repair_points_completeness()
 
             self._fit_wall_openings()  # 计算墙和门/窗的关系，判断门/窗是否在某一墙上
-            # self.draw_lines(all_wall_lines=self.all_wall_lines,
-            #                 file_name=os.path.join(self.options.res_folder_path, "debugLins.png"),
-            #                 background_img_data=resize_floor_plan_img_data)
+
+            tmp_resize_data = copy.deepcopy(resize_floor_plan_img_data)
+            self.draw_lines(all_wall_lines=self.all_door_lines,
+                            file_name=os.path.join(self.options.res_folder_path, "DoorLins.png"),
+                            background_img_data=tmp_resize_data)
+
+            tmp_resize_data = copy.deepcopy(resize_floor_plan_img_data)
+            self.draw_lines(all_wall_lines=self.all_wall_lines,
+                            file_name=os.path.join(self.options.res_folder_path, "debugLins.png"),
+                            background_img_data=tmp_resize_data)
 
             self._remove_invalid_inclined_wall()  # 斜墙剪枝逻辑
 
             self.draw_lines(all_wall_lines=self.all_wall_lines,
-                            file_name=os.path.join(self.options.res_folder_path, "debugLins_remove_invalid_inclined.png"),
+                            file_name=os.path.join(self.options.res_folder_path,
+                                                   "debugLins_remove_invalid_inclined.png"),
                             background_img_data=resize_floor_plan_img_data)
 
             # 查找并剔除孤立的门/窗点，即剔除没有跟wall有关系的门/窗 Point/Line
@@ -494,9 +502,11 @@ class Builder(object):
                     if line_1.start_point.x < line_1.start_point.x:
                         line_1_slpoe, line_1_intercept = self._calculate_line_slope(line_1.start_point.x,
                                                                                     line_1.start_point.y,
-                                                                                    line_1.end_point.x, line_1.end_point.y)
+                                                                                    line_1.end_point.x,
+                                                                                    line_1.end_point.y)
                     else:
-                        line_1_slpoe, line_1_intercept = self._calculate_line_slope(line_1.end_point.x, line_1.end_point.y,
+                        line_1_slpoe, line_1_intercept = self._calculate_line_slope(line_1.end_point.x,
+                                                                                    line_1.end_point.y,
                                                                                     line_1.start_point.x,
                                                                                     line_1.start_point.y)
                     if line_2.start_point.x < line_2.start_point.x:
@@ -509,12 +519,11 @@ class Builder(object):
                                                                                     line_2.end_point.y,
                                                                                     line_2.start_point.x,
                                                                                     line_2.start_point.y)
-                    if np.abs(line_1_slpoe-line_2_slpoe)<1: # and np.abs(line_2_intercept-line_1_intercept)<100:
-                        if line_1.get_wall_length() >=line_2.get_wall_length():
+                    if np.abs(line_1_slpoe - line_2_slpoe) < 1:  # and np.abs(line_2_intercept-line_1_intercept)<100:
+                        if line_1.get_wall_length() >= line_2.get_wall_length():
                             need_remove_index.append(j)
                         else:
                             need_remove_index.append(i)
-
 
         need_remove_index = list(set(need_remove_index))
         need_remove_index.sort(reverse=True)
@@ -554,9 +563,9 @@ class Builder(object):
                 r2, g2, b2 = self.floor_plan_img_data[cur_wall.end_point.x, cur_wall.end_point.y]
                 r3, g3, b3 = self.floor_plan_img_data[cur_wall.start_point.x, cur_wall.start_point.y + 1]
                 r3, g3, b3 = self.floor_plan_img_data[cur_wall.end_point.x, cur_wall.end_point.y + 1]
-                avg_r_p = np.mean([r1,r2])
-                avg_g_p = np.mean([g1,g2])
-                avg_b_p = np.mean([b1,b2])
+                avg_r_p = np.mean([r1, r2])
+                avg_g_p = np.mean([g1, g2])
+                avg_b_p = np.mean([b1, b2])
 
                 color_dis = self._colour_distance(avg_r, avg_g, avg_b, avg_r_p, avg_g_p, avg_b_p)
                 if color_dis > 300:
@@ -667,7 +676,7 @@ class Builder(object):
     def _build_opening_lines(self, all_opening_points, building_door=False):
         try:
             all_opening_points_copied = all_opening_points.copy()
-
+            oblique_opening_lines = [] # 斜门/窗处理
             i = 0
             all_lines = []
             while len(all_opening_points_copied) > 0:
@@ -675,6 +684,14 @@ class Builder(object):
                 # remove current wall point.
                 all_opening_points_copied.remove(cur_opening_point)
                 direction = cur_opening_point.get_direction()
+
+                if building_door:
+                    sorted_points = copy.deepcopy(all_opening_points_copied)
+                    oblique_points = self._find_points_on_oblique_direction(sorted_points, cur_opening_point)
+                    oblique_points = sorted(oblique_points, key=lambda obj: obj.x)
+                    for oblique_point in oblique_points:
+                        cur_opening_line = DoorLine(cur_opening_point, oblique_point)
+                        oblique_opening_lines.append(cur_opening_line)
 
                 all_points = self._find_points_on_same_direction(all_opening_points_copied, cur_opening_point,
                                                                  direction)
@@ -735,6 +752,26 @@ class Builder(object):
                         cur_opening_line = DoorLine(start_pt, end_pt)
 
                     all_lines.append(cur_opening_line)
+            if building_door:
+                gap = 50
+                need_remove_index = []
+                for i in range(len(oblique_opening_lines)):
+                    oblique_line = oblique_opening_lines[i]
+                    for line in all_lines:
+                        start_start_point_distance = self._get_point_distance(line.start_point, oblique_line.start_point)
+                        start_end_point_distance = self._get_point_distance(line.start_point, oblique_line.end_point)
+                        end_end_point_distance = self._get_point_distance(line.end_point, oblique_line.end_point)
+                        end_start_point_distance = self._get_point_distance(line.end_point, oblique_line.start_point)
+                        # 剔除斜墙上重复的门，包含来回门
+                        if (start_start_point_distance <= gap or end_end_point_distance <= gap) or (
+                                start_end_point_distance <= gap or end_start_point_distance <= gap):
+                                if oblique_line in oblique_opening_lines:
+                                    need_remove_index.append(i)
+                need_remove_index = list(set(need_remove_index))
+                need_remove_index.sort(reverse=True)
+                for index in need_remove_index:
+                    oblique_opening_lines.remove(oblique_opening_lines[index])
+                all_lines.extend(oblique_opening_lines)
             return all_lines
         except Exception as err:
             print(err)
@@ -867,6 +904,18 @@ class Builder(object):
             tmp_point = all_wall_points[i]
             # TODO 是否要考虑墙厚的误差？
             if self._is_line_parallel_direction(target_point, tmp_point, target_direction):
+                found_points.append(tmp_point)
+
+        return found_points
+
+    def _find_points_on_oblique_direction(self, all_wall_points, target_point):
+        found_points = []
+        threshold = 5
+
+        for i in range(len(all_wall_points)):
+            tmp_point = all_wall_points[i]
+            distance = np.sqrt((tmp_point.x - target_point.x) ** 2 + (tmp_point.y - target_point.y) ** 2)
+            if np.abs(target_point.x - tmp_point.x) > threshold and np.abs(target_point.y - tmp_point.y) > threshold and distance<100:
                 found_points.append(tmp_point)
 
         return found_points
@@ -1093,11 +1142,11 @@ class Builder(object):
                 y, x = np.unravel_index(index, heat_map_img_mask.shape)
                 # filter the noise.
                 cur_max_value = heat_map_img_mask[y, x]
-                if  np.abs(x-127)<6:
+                if np.abs(x - 127) < 6:  # debug 0ad81247-8ac5-4287-ba1e-ea500e113298.jpg
                     a = 1
-                if junction_class ==0 and junction_type_category==0:
+                if junction_class == 0 and junction_type_category == 0:
                     # a=1
-                    if cur_max_value <= 1.0e-02:
+                    if cur_max_value <= 0.2: # 这个阈值受斜墙与直墙corner的识别结果
                         break
                 elif cur_max_value <= heat_map_threshold:
                     break

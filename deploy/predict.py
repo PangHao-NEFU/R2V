@@ -71,8 +71,9 @@ class Predict(object):
 
             # 1. pre-process the image.
             image = (image.astype(np.float32) / 255 - 0.5)
-            # self.debug_util_obj.save_floorplan_imag_with_name(image * 255, res_folder_path=res_folder_path,
-            #                                                   name="PreProcessFullImage")
+            if self.options.debugFlag == 1:
+                self.debug_util_obj.save_floorplan_imag_with_name(image * 255, res_folder_path=res_folder_path,
+                                                              name="PreProcessFullImage_512*512")
             image = image.transpose((2, 0, 1))
             image_tensor = torch.Tensor(image)
             image_tensor = image_tensor.view((1, image_tensor.shape[0], image_tensor.shape[1], image_tensor.shape[2]))
@@ -129,15 +130,15 @@ class Predict(object):
 
 if __name__ == "__main__":
     args = parse_args()
-    args.outputDir = "./detectResult"
+    args.outputDir = "check/detectResult"
     args.debugFlag = 1
     folder_path = os.path.dirname(os.path.abspath(__file__))
     imgUrl = "https://henry-search.oss-cn-hangzhou.aliyuncs.com/im2fp/floorplan.png"
     imagePath1 = "0a0eccef-2277-4da0-9fe1-7277299af870.png"  # 单斜墙
     imagePath2 = "2caf3f3e-6225-4ee2-a74f-b98d7881e09c.jpg"  # 多斜墙
     imagePath3 = "0ad81247-8ac5-4287-ba1e-ea500e113298.jpg"  # 多斜墙
-    img_file_path = os.path.join(folder_path, "../detectData/" + imagePath1)
-    model_config_path = 'checkpoint/checkpoint_100.pth'
+    img_file_path = os.path.join(folder_path, "check/detectData/" + imagePath3)
+    model_config_path = 'checkpoint/checkpoint_190.pth'
     predictor = Predict(args, model_config_path)
-    res = predictor.predict(imagePath3,type="111")
+    res = predictor.predict(img_file_path, type="111")  # type=url是从ossUrl读数据
     print(res)
