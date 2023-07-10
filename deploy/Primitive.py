@@ -716,8 +716,12 @@ class WallLine(object):
                 return False
         elif direction == -1:
             # 两个点的斜率和截距,没有对point做严格的排序，所以先忽略方向
-            line_slope = np.abs((self.end_point.y - self.start_point.y) / (self.end_point.x - self.start_point.x))
-            opening_slope = np.abs((opening.end_point.y - self.start_point.y) / (opening.end_point.x - self.start_point.x))
+            if self.start_point.x <= self.end_point.x:
+                line_slope = (self.end_point.y - self.start_point.y) / (self.end_point.x - self.start_point.x)
+                opening_slope = (opening.end_point.y - self.start_point.y) / (opening.end_point.x - self.start_point.x)
+            else:
+                line_slope = (self.start_point.y - self.end_point.y) / (self.start_point.x - self.end_point.x)
+                opening_slope = (opening.start_point.y - self.end_point.y) / (opening.start_point.x - self.end_point.x)
 
             if np.abs(line_slope - opening_slope) > 0.5:
                 return False
@@ -779,10 +783,12 @@ class DoorLine(WallLine):
 
     def get_door_direction(self):
         if self.start_point is None:
-            return -1
+            return -2
 
         line_dim = self.line_dim()
-        if line_dim == 0:
+        if line_dim ==-1:
+            return -1
+        elif line_dim == 0:
             if self.start_point.type_category < 3:
                 if self.start_point.type_sub_category in [3, 7]:
                     return 1

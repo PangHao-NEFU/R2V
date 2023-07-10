@@ -490,7 +490,6 @@ class WallAlignment(object):
             if not self._align_wall_line(cur_wall_line):
                 unalign_wall_lines.append(cur_wall_line)
 
-
         inner_wall_thickness, outer_wall_thickness = self._calc_walls_thickness()
 
         self._update_walls_type(inner_wall_thickness, outer_wall_thickness)

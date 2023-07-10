@@ -22,7 +22,6 @@ class FloorplanDataDump(object):
 
         super(FloorplanDataDump, self).__init__()
 
-    # 计算default measure scale ratio
     def _calc_default_measure_scale_ratio(self, single_swing_door_list, max_wall_thickness):
         door_num = len(single_swing_door_list)
         default_door_width = 0.8
@@ -32,7 +31,6 @@ class FloorplanDataDump(object):
             door_width = single_swing_door_list[middle_door_index][4]
             ratio = default_door_width / door_width
         else:
-            # use the wall thickness to adjust the radio
             ratio = 0.24 / max_wall_thickness
         return ratio
 
@@ -236,13 +234,13 @@ class FloorplanDataDump(object):
 
         return room_json_str
 
-    def _dump_wall_info(self, room_json_str, wall_list,wall_id_positions_map,ratio):
+    def _dump_wall_info(self, room_json_str, wall_list, wall_id_positions_map, ratio):
         wallIds = list(wall_id_positions_map.keys())
         # add wall info
         for wall_index in range(len(wall_list)):
             thickness = 0.24
             is_bearing = True
-            if wall_list[wall_index][4] < self.max_wall_thickness*ratio:
+            if wall_list[wall_index][4] < self.max_wall_thickness * ratio:
                 thickness = 0.12
                 is_bearing = False
             else:
@@ -402,7 +400,7 @@ class FloorplanDataDump(object):
 
         # header information.
         room_json_str = self._dump_room_info_header()
-        room_json_str = self._dump_wall_info(room_json_str, wall_list,wall_id_positions_map,ratio)
+        room_json_str = self._dump_wall_info(room_json_str, wall_list, wall_id_positions_map, ratio)
         room_json_str = self._dump_window_info(room_json_str, window_list)
         room_json_str = self._dump_door_info(room_json_str, door_list)
         return room_json_str
