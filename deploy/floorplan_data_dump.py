@@ -218,14 +218,15 @@ class FloorplanDataDump(object):
 
         return door_list, single_swing_door_list
 
-    def _dump_room_info_header(self):
+    def _dump_room_info_header(self,ratio):
         room_json_str = {
             # 中间格式版本号，当前版本号1.0
             "version": "1.0",
             "meta": {
                 "unit": {
                     # 长度单位 m，cm，mm, ft 默认 m
-                    "length": "m"
+                    "length": "m",
+                    "ratio": ratio
                 }
             },
             # 户型信息
@@ -403,7 +404,7 @@ class FloorplanDataDump(object):
                 wall_list[wall_index][i] = wall_list[wall_index][i] * ratio
 
         # header information.
-        room_json_str = self._dump_room_info_header()
+        room_json_str = self._dump_room_info_header(ratio)
         room_json_str = self._dump_wall_info(room_json_str, wall_list, wall_id_positions_map, ratio)
         room_json_str = self._dump_window_info(room_json_str, window_list)
         room_json_str = self._dump_door_info(room_json_str, door_list)

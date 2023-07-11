@@ -216,30 +216,30 @@ class Builder(object):
             self._fit_wall_openings()  # 计算墙和门/窗的关系，判断门/窗是否在某一墙上
 
             # tmp_resize_data = copy.deepcopy(resize_floor_plan_img_data)
-            tmp_resize_data = np.ones(
-                (resize_floor_plan_img_data.shape[0], resize_floor_plan_img_data.shape[1], 3),
-                np.uint8) * 255
-            self.draw_lines(all_wall_lines=self.all_door_lines,
-                            file_name=os.path.join(self.options.res_folder_path, "DoorLins.png"),
-                            background_img_data=tmp_resize_data, print_Point=False)
+            # tmp_resize_data = np.ones(
+            #     (resize_floor_plan_img_data.shape[0], resize_floor_plan_img_data.shape[1], 3),
+            #     np.uint8) * 255
+            # self.draw_lines(all_wall_lines=self.all_door_lines,
+            #                 file_name=os.path.join(self.options.res_folder_path, "DoorLins.png"),
+            #                 background_img_data=tmp_resize_data, print_Point=False)
 
             # tmp_resize_data = copy.deepcopy(resize_floor_plan_img_data)
-            tmp_resize_data = np.ones(
-                (resize_floor_plan_img_data.shape[0], resize_floor_plan_img_data.shape[1], 3),
-                np.uint8) * 255
-            self.draw_lines(all_wall_lines=self.all_wall_lines,
-                            file_name=os.path.join(self.options.res_folder_path, "debugLins.png"),
-                            background_img_data=tmp_resize_data, print_Point=False)
+            # tmp_resize_data = np.ones(
+            #     (resize_floor_plan_img_data.shape[0], resize_floor_plan_img_data.shape[1], 3),
+            #     np.uint8) * 255
+            # self.draw_lines(all_wall_lines=self.all_wall_lines,
+            #                 file_name=os.path.join(self.options.res_folder_path, "debugLins.png"),
+            #                 background_img_data=tmp_resize_data, print_Point=False)
 
             self._remove_invalid_inclined_wall()  # 斜墙剪枝逻辑
 
-            tmp_resize_data = np.ones(
-                (resize_floor_plan_img_data.shape[0], resize_floor_plan_img_data.shape[1], 3),
-                np.uint8) * 255
-            self.draw_lines(all_wall_lines=self.all_wall_lines,
-                            file_name=os.path.join(self.options.res_folder_path,
-                                                   "debugLins_remove_invalid_inclined.png"),
-                            background_img_data=tmp_resize_data, print_Point=True)
+            # tmp_resize_data = np.ones(
+            #     (resize_floor_plan_img_data.shape[0], resize_floor_plan_img_data.shape[1], 3),
+            #     np.uint8) * 255
+            # self.draw_lines(all_wall_lines=self.all_wall_lines,
+            #                 file_name=os.path.join(self.options.res_folder_path,
+            #                                        "debugLins_remove_invalid_inclined.png"),
+            #                 background_img_data=tmp_resize_data, print_Point=True)
 
             # 查找并剔除孤立的门/窗点，即剔除没有跟wall有关系的门/窗 Point/Line
             self._remove_isolate_openings()
@@ -561,6 +561,11 @@ class Builder(object):
 
     def _remove_redundance_inclined_wall(self, inclined_walls, inclined_wall_with_opening, not_inclined_wall):
         need_remove_index = []
+        r1, g1, b1 = self.floor_plan_img_data[not_inclined_wall.start_point.x, not_inclined_wall.start_point.y]
+        r2, g2, b2 = self.floor_plan_img_data[not_inclined_wall.end_point.x, not_inclined_wall.end_point.y]
+        avg_r_p = np.mean([r1, r2])
+        avg_g_p = np.mean([g1, g2])
+        avg_b_p = np.mean([b1, b2])
         for i in range(len(inclined_walls)):
             cur_wall = inclined_walls[i]
             lr = []
@@ -574,36 +579,24 @@ class Builder(object):
             else:
                 line_piexl = self._calculate_line_piexl(cur_wall.end_point.x, cur_wall.end_point.y,
                                                         cur_wall.start_point.x, cur_wall.start_point.y)
+            diff_pixels_number = 0
             sum_length = len(line_piexl)
-            for point_info in line_piexl[0:int(len(line_piexl)/6)]:
+            for point_info in line_piexl:
                 r, g, b = self.floor_plan_img_data_resize[point_info[0], point_info[1]]
+                prev_wall_hls_color = cv2.cvtColor(np.array([avg_b_p, avg_g_p, avg_r_p]).reshape((1, 1, 3)).astype(np.uint8), cv2.COLOR_BGR2HLS)
+                cur_wall_hls_color = cv2.cvtColor(np.array([b, g, r]).reshape((1, 1, 3)).astype(np.uint8), cv2.COLOR_BGR2HLS)
                 lr.append(r)
                 lg.append(g)
                 lb.append(b)
-            for point_info in line_piexl[int(len(line_piexl) / 6):len(line_piexl)]:
-                r, g, b = self.floor_plan_img_data_resize[point_info[0], point_info[1]]
-                lr.append(r)
-                lg.append(g)
-                lb.append(b)
-            if sum_length < 1:
-                a = 1
-            else:
-                avg_r = np.mean(lr)
-                avg_g = np.mean(lg)
-                avg_b = np.mean(lb)
+                prev_h, prev_l, prev_s = prev_wall_hls_color[0, 0, 0], prev_wall_hls_color[0, 0, 1], prev_wall_hls_color[0, 0, 2]
+                cur_h, cur_l, cur_s = cur_wall_hls_color[0, 0, 0], cur_wall_hls_color[0, 0, 1], cur_wall_hls_color[0, 0, 2]
 
-                r1, g1, b1 = self.floor_plan_img_data[not_inclined_wall.start_point.x, not_inclined_wall.start_point.y]
-                r2, g2, b2 = self.floor_plan_img_data[not_inclined_wall.end_point.x, not_inclined_wall.end_point.y]
-                avg_r_p = np.mean([r1, r2])
-                avg_g_p = np.mean([g1, g2])
-                avg_b_p = np.mean([b1, b2])
+                if np.abs(np.int32(prev_l) - np.int32(cur_l)) > 30 or np.abs(np.int32(prev_s) - np.int32(cur_s)) > 30:
+                    diff_pixels_number += 1
 
-                color_dis = self._colour_distance(avg_r, avg_g, avg_b, avg_r_p, avg_g_p, avg_b_p)
-                if color_dis > 200:
-                    need_remove_index.append(i)
-                if max(abs(cur_wall.start_point.x - cur_wall.end_point.x),
-                       abs(cur_wall.start_point.y - cur_wall.end_point.y)) < 20:
-                    need_remove_index.append(i)
+            if diff_pixels_number!=sum_length and diff_pixels_number > 0.5 * sum_length:
+                need_remove_index.append(i)
+                continue
 
         need_remove_index = list(set(need_remove_index))
         need_remove_index.sort(reverse=True)
@@ -632,7 +625,7 @@ class Builder(object):
             elif i > int(x1) & i <= int(x2):
                 y = int(a * i + b)
                 line_piexl.append([i, y])  # 原直线
-                for t in range(2):
+                for t in range(5):
                     line_piexl.append([i, y - t])  # 直线向上平移一个像素
                     line_piexl.append([i, y + t])  # 直线向下平移一个像素
         line_piexl = np.array(line_piexl)
@@ -1153,7 +1146,6 @@ class Builder(object):
             for tmp_point in inclined_wall_points_copied:
                 inclined_wall = np.abs(tmp_point.x - cur_wall_point.x) > 5 and np.abs(
                     tmp_point.y - cur_wall_point.y) > 5
-                # pointDistance()
                 if not inclined_wall:
                     if cur_wall_point in inclined_wall_points:
                         inclined_wall_points.remove(cur_wall_point)

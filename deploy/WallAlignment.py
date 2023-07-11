@@ -142,9 +142,9 @@ class WallAlignment(object):
                     prev_h, prev_l, prev_s = prev_wall_hls_color[0,0,0], prev_wall_hls_color[0,0,1], prev_wall_hls_color[0,0,2]
                     cur_h, cur_l, cur_s = cur_wall_hls_color[0,0,0], cur_wall_hls_color[0,0,1], cur_wall_hls_color[0,0,2]
 
-                    if np.abs(np.int32(prev_l) - np.int32(cur_l)) > 20:
+                    if np.abs(np.int32(prev_l) - np.int32(cur_l)) > 50:
                         diff_pixels_number += cur_wall_section.shape[0]
-                    if np.abs(np.int32(prev_s) - np.int32(cur_s)) > 20:
+                    if np.abs(np.int32(prev_s) - np.int32(cur_s)) > 50:
                         diff_pixels_number += cur_wall_section.shape[0]
 
                 # 像素变化比较多。
@@ -185,7 +185,8 @@ class WallAlignment(object):
             opening_length += cur_opening.get_wall_length()
         target_wall_length = wall_length - opening_length
         # 比较小的wall判断容易出现问题,暂时不做处理 by henry.hao 2023.07.01
-        if target_wall_length < 15 or float(target_wall_length) / wall_length < 0.4:
+        # 墙是墙的像素差，窗是窗的像素差 by henry.hao 2023.07.11
+        if target_wall_length < 10 or float(target_wall_length) / wall_length < 0.05:
             return False
 
         wall_line_dim = cur_wall_line.line_dim()
