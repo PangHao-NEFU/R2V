@@ -1,3 +1,5 @@
+import math
+
 import cv2
 from Primitive import *
 
@@ -71,7 +73,7 @@ class WallAlignment(object):
     # 从start_pos开始，direction表示line的方向。
     # wall_sections, 由于门可能在墙上，这会增加判断精度，需要把门去掉。
     # increase_flag: direction = 0时， True向上寻找，False向下寻找。
-    #                direction = 1时，True向右寻找，False向下寻找。
+    #                direction = 1时，True向右寻找，False向左寻找。
     # 设置最大寻找次数，超过了寻找次数，寻找失败。
     def _find_boundary_line(self, start_pos, wall_sections, direction, increase_flag=True, max_scan_number=10):
         prev_wall_sections_gray_values = None
@@ -137,17 +139,16 @@ class WallAlignment(object):
                     # 颜色变化比较大
                     prev_wall_hls_color = cv2.cvtColor(prev_avg_gray_value, cv2.COLOR_BGR2HLS)
                     cur_wall_hls_color = cv2.cvtColor(cur_avg_gray_value, cv2.COLOR_BGR2HLS)
-
                     prev_h, prev_l, prev_s = prev_wall_hls_color[0,0,0], prev_wall_hls_color[0,0,1], prev_wall_hls_color[0,0,2]
                     cur_h, cur_l, cur_s = cur_wall_hls_color[0,0,0], cur_wall_hls_color[0,0,1], cur_wall_hls_color[0,0,2]
 
-                    if np.abs(np.int32(prev_l) - np.int32(cur_l)) > 50:
+                    if np.abs(np.int32(prev_l) - np.int32(cur_l)) > 20:
                         diff_pixels_number += cur_wall_section.shape[0]
-                    if np.abs(np.int32(prev_s) - np.int32(cur_s)) > 50:
+                    if np.abs(np.int32(prev_s) - np.int32(cur_s)) > 20:
                         diff_pixels_number += cur_wall_section.shape[0]
 
                 # 像素变化比较多。
-                if diff_pixels_number > 0.3 * sum_length:
+                if diff_pixels_number > 0.1 * sum_length:
                     if np.mean(prev_avg_gray_value) > np.mean(cur_avg_gray_value):
                         dark_to_light_flag = False
                     else:
@@ -163,7 +164,13 @@ class WallAlignment(object):
                 boundary_pos -= 1
                 if boundary_pos < 0:
                     return -1, False, np.mean(cur_avg_gray_value)
-
+        if dark_to_light_flag:
+            if direction==0 and increase_flag:
+                boundary_pos
+            elif direction==0 and not increase_flag:
+                boundary_pos +=1
+            elif direction==1 and not increase_flag:
+                boundary_pos += 1
         # return boundary_pos - 1 if increase_flag else boundary_pos+1
         return boundary_pos, dark_to_light_flag, np.mean(cur_avg_gray_value)
 

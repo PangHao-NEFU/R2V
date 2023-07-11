@@ -89,9 +89,9 @@ class WallBuilderDataDump(object):
         if not os.path.exists(self.wall_builder_obj.options.res_folder_path):
             os.makedirs(self.wall_builder_obj.options.res_folder_path)
         cv2_write_image(self.wall_builder_obj.floor_plan_img_data, file_path)
-        self.wall_builder_obj.floor_plan_img_data = np.ones(
-            (self.wall_builder_obj.floor_plan_img_height, self.wall_builder_obj.floor_plan_img_width, 3),
-            np.uint8) * 255
+        # self.wall_builder_obj.floor_plan_img_data = np.ones(
+        #     (self.wall_builder_obj.floor_plan_img_height, self.wall_builder_obj.floor_plan_img_width, 3),
+        #     np.uint8) * 255
 
         back_ground_img = self.wall_builder_obj.floor_plan_img_data.copy()
         self._draw_wall_lines(self.wall_builder_obj.all_wall_lines, line_width=2,
@@ -188,8 +188,8 @@ class WallBuilderDataDump(object):
                                       wall_line.boundary_range_box[2],
                                       wall_line.end_point.y]
             self._draw_range_box(boundary_range_box, image, line_color)
-            # if wall_line.line_dim() == -1:
-            #     cv2.line(image, (wall_line.start_point.x, wall_line.start_point.y), (wall_line.end_point.x, wall_line.end_point.y), line_color, 2)
+            if wall_line.line_dim() == -1:
+                cv2.line(image, (wall_line.start_point.x, wall_line.start_point.y), (wall_line.end_point.x, wall_line.end_point.y), line_color, 2)
 
 
     def _draw_wall_lines(self, wall_lines, line_width=2, back_ground_img=None,
@@ -231,6 +231,7 @@ class WallBuilderDataDump(object):
                 max(fixedValue - line_width, 0):min(fixedValue + line_width, self.wall_builder_obj.floor_plan_img_width), :] = draw_color
             else:
                 cv2.line(image, (point_1.x, point_1.y), (point_2.x, point_2.y), (int(draw_color[1]), int(draw_color[2]), int(draw_color[0])), 2)
+                cv2.putText(image, str(wall_line.id),(point_1.x, point_1.y), cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (int(draw_color[1]), int(draw_color[2]), int(draw_color[0])))
 
             if wall_line.actual_space_length > 0:
                 x = int(0.5 * (point_1.x + point_2.x))

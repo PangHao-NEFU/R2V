@@ -137,8 +137,9 @@ if __name__ == "__main__":
     imagePath1 = "0a0eccef-2277-4da0-9fe1-7277299af870.png"  # 单斜墙
     imagePath2 = "2caf3f3e-6225-4ee2-a74f-b98d7881e09c.jpg"  # 多斜墙
     imagePath3 = "0ad81247-8ac5-4287-ba1e-ea500e113298.jpg"  # 多斜墙
-    img_file_path = os.path.join(folder_path, "check/detectData/" + imagePath3)
-    model_config_path = 'checkpoint/checkpoint_780.pth'
+    imagePath4 ="2b2f621c-f6b0-48c7-b785-b425097df544.png"
+    img_file_path = os.path.join(folder_path, "check/detectData/" + imagePath4)
+    model_config_path = 'checkpoint/checkpoint_940.pth'
     predictor = Predict(args, model_config_path)
     res = predictor.predict(img_file_path, type="111")  # type=url是从ossUrl读数据
     print(res)

@@ -651,7 +651,7 @@ class WallLine(object):
                     opening.start_point.x = wall_left_limit
                 if 0 < wall_right_limit < opening.end_point.x:
                     opening.end_point.x = wall_right_limit
-        else:
+        elif direction == 1:
             wall_down_limit = 0.0
             wall_up_limit = 0.0
             if len(self.openings) > 0:
@@ -680,6 +680,42 @@ class WallLine(object):
                     opening.start_point.y = wall_down_limit
                 if 0 < wall_up_limit < opening.end_point.y:
                     opening.end_point.y = wall_up_limit
+        elif direction == -1:
+            wall_left_limit = 0.0
+            wall_right_limit = 0.0
+            wall_down_limit = 0.0
+            wall_up_limit = 0.0
+            if len(self.openings) > 0:
+                for tmp_wall in self.start_point.wall_lines:
+                    wall_left_limit = tmp_wall.boundary_range_box[2]
+                    wall_down_limit = tmp_wall.boundary_range_box[3]
+                    break
+                for tmp_wall in self.end_point.wall_lines:
+                    wall_right_limit = tmp_wall.boundary_range_box[0]
+                    wall_up_limit = tmp_wall.boundary_range_box[1]
+                    break
+
+            for opening in self.openings:
+                opening.start_point.x = self.start_point.x
+                opening.end_point.x = self.start_point.x
+                opening.start_point.y = self.start_point.y
+                opening.end_point.y = self.start_point.y
+
+                opening.boundary_range_box[1] = self.boundary_range_box[1]
+                opening.boundary_range_box[3] = self.boundary_range_box[3]
+
+                opening.boundary_range_box[0] = self.boundary_range_box[0]
+                opening.boundary_range_box[2] = self.boundary_range_box[2]
+
+                # 限制Opening.start_point.x and Opening.end_point.x
+                if opening.start_point.x < wall_left_limit:
+                    opening.start_point.x = wall_left_limit
+                if 0 < wall_right_limit < opening.end_point.x:
+                    opening.end_point.x = wall_right_limit
+                # if opening.start_point.y < wall_down_limit:
+                #     opening.start_point.y = wall_down_limit
+                # if 0 < wall_up_limit < opening.end_point.y:
+                #     opening.end_point.y = wall_up_limit
 
     def line_dim(self):
         threshold = 5  # 纯个人经验值 by henry.hao 2023.06.29
@@ -786,7 +822,7 @@ class DoorLine(WallLine):
             return -2
 
         line_dim = self.line_dim()
-        if line_dim ==-1:
+        if line_dim == -1:
             return -1
         elif line_dim == 0:
             if self.start_point.type_category < 3:

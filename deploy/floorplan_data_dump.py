@@ -140,7 +140,9 @@ class FloorplanDataDump(object):
             positions[1] = cur_door.start_point.y
             positions[2] = cur_door.end_point.x
             positions[3] = cur_door.end_point.y
-
+            door_direction = cur_door.get_door_direction()
+            if door_direction == -1:
+                a = 1
             # check the swing value
             door_type = cur_door.get_door_type()
             swing = 0
@@ -165,13 +167,15 @@ class FloorplanDataDump(object):
                     wall_start_y = parent_wall_line.start_point.y
                     wall_end_x = parent_wall_line.end_point.x
                     wall_end_y = parent_wall_line.end_point.y
-                    # fpLog.info("door start and end", positions[0], positions[1], positions[2], positions[3])
-                    # fpLog.info("wall start and end", wall_start_x, wall_start_y, wall_end_x, wall_end_y)
+                    # print("door start and end", positions[0], positions[1], positions[2], positions[3])
+                    # print("wall start and end", wall_start_x, wall_start_y, wall_end_x, wall_end_y)
 
                     start_side = math.sqrt((wall_start_x - positions[0]) ** 2 + (wall_start_y - positions[1]) ** 2)
                     end_side = math.sqrt((wall_end_x - positions[2]) ** 2 + (wall_end_y - positions[3]) ** 2)
 
                     door_direction = cur_door.get_door_direction()
+                    if door_direction == -1:
+                        a=1
                     # 水平门
                     if wall_start_y == wall_end_y:
                         if door_direction == 0:  # 图片中，门朝上
