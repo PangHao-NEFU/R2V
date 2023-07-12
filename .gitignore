@@ -6,3 +6,5 @@ dataprepare/fromSJJ/data/
 /dataprepare/fromSJJ/data/
 /models/utils/sjj_v2/
 /models/checkpoint/
+/deploy/checkpoint/
+/dataPreprocess/history/
