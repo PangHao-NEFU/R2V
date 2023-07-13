@@ -63,7 +63,7 @@ class DebugInfo(object):
                     if img_transfor_obj is not None:
                         cur_heatmap = img_transfor_obj.mapping_2_original_image_size(cur_heatmap)
                     cv2_write_image_light(cur_heatmap, cur_heatmap_file_path)
-                    if 13>i>4:
+                    if 21>i>13:
                         all_cur_heatmaps.append(cur_heatmap)
             temp = all_cur_heatmaps[len(all_cur_heatmaps)-1]
             for i in range(len(all_cur_heatmaps)-1):

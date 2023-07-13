@@ -139,7 +139,7 @@ if __name__ == "__main__":
     imagePath3 = "0ad81247-8ac5-4287-ba1e-ea500e113298.jpg"  # 多斜墙
     imagePath4 ="2b2f621c-f6b0-48c7-b785-b425097df544.png"
     imagePath5 = "MicrosoftTeams-image.png"
-    img_file_path = os.path.join(folder_path, "check/detectData/" + imagePath5)
+    img_file_path = os.path.join(folder_path, "check/detectData/" + imagePath1)
     model_config_path = 'checkpoint/checkpoint_940.pth'
     predictor = Predict(args, model_config_path)
     res = predictor.predict(img_file_path, type="111")  # type=url是从ossUrl读数据

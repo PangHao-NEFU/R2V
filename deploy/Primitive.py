@@ -865,7 +865,7 @@ class OpeningLine(WallLine):
             return False
 
     def to_json_dict(self):
-        data = "{0}\t{1}\t{2}\t{3}\t{4}\t{5}\t{6}\t{7}".format(self.boundary_range_box[0], self.boundary_range_box[1],
+        data = "{0}\t{1}\t{2}\t{3}\t{4}\t{5}\t{6}OpeningLine\t{7}".format(self.boundary_range_box[0], self.boundary_range_box[1],
                                                                self.boundary_range_box[2], self.boundary_range_box[3],
                                                                "opening", 1, 1, self.get_wall_thickness())
 
