@@ -63,7 +63,7 @@ class DebugInfo(object):
                     if img_transfor_obj is not None:
                         cur_heatmap = img_transfor_obj.mapping_2_original_image_size(cur_heatmap)
                     cv2_write_image_light(cur_heatmap, cur_heatmap_file_path)
-                    if i<4:
+                    if 13>i>4:
                         all_cur_heatmaps.append(cur_heatmap)
             temp = all_cur_heatmaps[len(all_cur_heatmaps)-1]
             for i in range(len(all_cur_heatmaps)-1):
@@ -313,7 +313,7 @@ class WallBuilderDataDump(object):
                         # 在上面
                         image[max(fixedValue - 15, 0):max(fixedValue, 0),
                         minValue + 5:minValue + 5 + line_width, :] = line_color
-            else:
+            elif line_dim == 1:
                 image[minValue:maxValue + 1,
                 max(fixedValue - line_width, 0):min(fixedValue + line_width, self.wall_builder_obj.floor_plan_img_width), :] = line_color
 
@@ -326,6 +326,11 @@ class WallBuilderDataDump(object):
                         # 在左边
                         image[minValue + 5:minValue + 5 + line_width, max(fixedValue - 15, 0):max(fixedValue, 0),
                         :] = line_color
+            elif line_dim == -1:
+                cv2.line(image, (point_1.x, point_1.y), (point_2.x, point_2.y),
+                         (255, 127,0 ), 2)
+                cv2.putText(image, str(point_1.x)+","+str(point_1.y), (point_1.x, point_1.y), cv2.FONT_HERSHEY_COMPLEX_SMALL, 1,
+                            (255, 127,0))
 
         file_path = self._get_file_path(file_name)
         cv2_write_image(image, file_path)

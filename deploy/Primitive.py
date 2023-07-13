@@ -366,7 +366,7 @@ class WallPoint(object):
     def get_heat_map_boundary(self):
         x_index = [value[0] for value in self.heat_map_scope_pixels]
         y_index = [value[1] for value in self.heat_map_scope_pixels]
-        return np.max(x_index)-np.min(x_index),np.max(y_index)-np.min(y_index)
+        return np.max(x_index) - np.min(x_index), np.max(y_index) - np.min(y_index)
 
 
 # DoorPoint
@@ -443,6 +443,8 @@ class WallLine(object):
 
         self.is_inclined_wall = False
 
+        self.is_need_inclined_wall = False
+
         # 实际的长度， 考虑了比例尺的问题。
         # 这个不是像素级别的长度。
         self.actual_space_length = -1.0
@@ -490,6 +492,7 @@ class WallLine(object):
             top_boundary, bottom_boundary = self.end_point.get_boundary(0)
             if top_boundary > 0:
                 self.boundary_range_box[3] = top_boundary
+
     def set_thickness_boundary_by_neighbor_wall(self, direction, neighbor_wall):
         neighbor_wall_thickness = neighbor_wall.get_wall_thickness()
         if neighbor_wall_thickness < 0:
@@ -681,37 +684,32 @@ class WallLine(object):
                 if 0 < wall_up_limit < opening.end_point.y:
                     opening.end_point.y = wall_up_limit
         elif direction == -1:
-            wall_left_limit = 0.0
-            wall_right_limit = 0.0
             wall_down_limit = 0.0
             wall_up_limit = 0.0
             if len(self.openings) > 0:
                 for tmp_wall in self.start_point.wall_lines:
-                    wall_left_limit = tmp_wall.boundary_range_box[2]
+                    if tmp_wall.id == self.id or tmp_wall.line_dim() != 0:
+                        continue
                     wall_down_limit = tmp_wall.boundary_range_box[3]
                     break
                 for tmp_wall in self.end_point.wall_lines:
-                    wall_right_limit = tmp_wall.boundary_range_box[0]
+                    if tmp_wall.id == self.id or tmp_wall.line_dim() != 0:
+                        continue
                     wall_up_limit = tmp_wall.boundary_range_box[1]
                     break
 
             for opening in self.openings:
                 opening.start_point.x = self.start_point.x
-                opening.end_point.x = self.start_point.x
+                opening.end_point.x = self.end_point.x
                 opening.start_point.y = self.start_point.y
-                opening.end_point.y = self.start_point.y
+                opening.end_point.y = self.end_point.y
 
-                opening.boundary_range_box[1] = self.boundary_range_box[1]
-                opening.boundary_range_box[3] = self.boundary_range_box[3]
-
-                opening.boundary_range_box[0] = self.boundary_range_box[0]
-                opening.boundary_range_box[2] = self.boundary_range_box[2]
-
-                # 限制Opening.start_point.x and Opening.end_point.x
-                if opening.start_point.x < wall_left_limit:
-                    opening.start_point.x = wall_left_limit
-                if 0 < wall_right_limit < opening.end_point.x:
-                    opening.end_point.x = wall_right_limit
+                # opening.boundary_range_box[0] = self.boundary_range_box[0]
+                # opening.boundary_range_box[2] = self.boundary_range_box[2]
+                #
+                # opening.boundary_range_box[1] = opening.start_point.y
+                # opening.boundary_range_box[3] = opening.end_point.y
+                #
                 # if opening.start_point.y < wall_down_limit:
                 #     opening.start_point.y = wall_down_limit
                 # if 0 < wall_up_limit < opening.end_point.y:
@@ -765,7 +763,6 @@ class WallLine(object):
                 return True
             else:
                 return False
-
 
     # wall lines 是否相交。
     def is_interest(self, other_wall_line):

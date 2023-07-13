@@ -18,7 +18,7 @@ class WallAlignment(object):
         self.all_door_points = all_door_points
 
         self.image_gray_data = image_data
-        self.max_scan_number = 10 #20个像素点。
+        self.max_scan_number = 10  # 20个像素点。
 
         self.outer_walls_thickness = []
         self.inner_walls_thickness = []
@@ -38,8 +38,8 @@ class WallAlignment(object):
             elif cur_wall_dim == 1:
                 line1 = [0, line_y_center, line_x_center, line_y_center]
                 line2 = [line_x_center, line_y_center, self.image_width, line_y_center]
-            elif cur_wall_dim == -1: # 斜墙处理
-                line1 = [cur_wall.start_point.x, cur_wall.start_point.y,  cur_wall.end_point.x, cur_wall.end_point.y]
+            elif cur_wall_dim == -1:  # 斜墙处理
+                line1 = [cur_wall.start_point.x, cur_wall.start_point.y, cur_wall.end_point.x, cur_wall.end_point.y]
                 line2 = [cur_wall.start_point.x, cur_wall.start_point.y, cur_wall.end_point.x, cur_wall.end_point.y]
             # line coordinate.
             intersect_res = []
@@ -69,13 +69,13 @@ class WallAlignment(object):
                 intersect_res.append(has_intersect_wall)
             cur_wall.is_outer_wall = True if False in intersect_res else False
 
-
     # 从start_pos开始，direction表示line的方向。
     # wall_sections, 由于门可能在墙上，这会增加判断精度，需要把门去掉。
     # increase_flag: direction = 0时， True向上寻找，False向下寻找。
     #                direction = 1时，True向右寻找，False向左寻找。
+    #                direction = -1时，True向斜上寻找，False向斜下寻找。
     # 设置最大寻找次数，超过了寻找次数，寻找失败。
-    def _find_boundary_line(self, start_pos, wall_sections, direction, increase_flag=True, max_scan_number=10):
+    def _find_boundary_line(self, start_pos, wall_sections, direction, increase_flag=True, max_scan_number=15):
         prev_wall_sections_gray_values = None
         boundary_pos = start_pos
         # 是否由深色变成浅色
@@ -104,12 +104,13 @@ class WallAlignment(object):
                         end_find_pos = cur_wall[1].x
 
                     # 找水平线
-                    tmp_wall_gray_values = self.image_gray_data[boundary_pos, start_find_pos:end_find_pos+1]
+                    tmp_wall_gray_values = self.image_gray_data[boundary_pos, start_find_pos:end_find_pos + 1]
                     cur_wall_sections_gray_values.append(tmp_wall_gray_values)
 
-                    sum_gray_value += np.sum(self.image_gray_data[boundary_pos, start_find_pos:end_find_pos+1], axis=0)
-                    sum_length += (end_find_pos - start_find_pos+1)
-                else:
+                    sum_gray_value += np.sum(self.image_gray_data[boundary_pos, start_find_pos:end_find_pos + 1],
+                                             axis=0)
+                    sum_length += (end_find_pos - start_find_pos + 1)
+                elif direction == 1:
                     if isinstance(cur_wall[0], int):
                         start_find_pos = cur_wall[0]
                         end_find_pos = cur_wall[1]
@@ -121,8 +122,31 @@ class WallAlignment(object):
                     tmp_wall_gray_values = self.image_gray_data[start_find_pos:end_find_pos + 1, boundary_pos]
                     cur_wall_sections_gray_values.append(tmp_wall_gray_values)
 
-                    sum_gray_value += np.sum(self.image_gray_data[start_find_pos:end_find_pos + 1, boundary_pos], axis=0)
-                    sum_length += (end_find_pos - start_find_pos+1)
+                    sum_gray_value += np.sum(self.image_gray_data[start_find_pos:end_find_pos + 1, boundary_pos],
+                                             axis=0)
+                    sum_length += (end_find_pos - start_find_pos + 1)
+                elif direction == -1:
+                    step = int(np.abs(boundary_pos - start_pos))
+                    if increase_flag:
+                        start_find_pos_x = cur_wall[0].x - step
+                        start_find_pos_y = cur_wall[0].y - step
+                        end_find_pos_x = cur_wall[1].x - step
+                        end_find_pos_y = cur_wall[1].y - step
+                    else:
+                        start_find_pos_x = cur_wall[0].x + step
+                        start_find_pos_y = cur_wall[0].y + step
+                        end_find_pos_x = cur_wall[1].x + step
+                        end_find_pos_y = cur_wall[1].y + step
+
+                    line_piexl = self._calculate_line_piexl(start_find_pos_x, start_find_pos_y, end_find_pos_x,
+                                                            end_find_pos_y)
+                    gray_value = []
+                    for point_info in line_piexl:
+                        gray_value.append(np.array(self.image_gray_data[point_info[0], point_info[1]]))
+                    gray_value = np.array(gray_value)
+                    cur_wall_sections_gray_values.append(gray_value)
+                    sum_gray_value += np.sum(gray_value, axis=0)
+                    sum_length += len(line_piexl)
 
             cur_avg_gray_value = sum_gray_value / sum_length
             cur_avg_gray_value = np.clip(cur_avg_gray_value, 0, 255)
@@ -139,8 +163,10 @@ class WallAlignment(object):
                     # 颜色变化比较大
                     prev_wall_hls_color = cv2.cvtColor(prev_avg_gray_value, cv2.COLOR_BGR2HLS)
                     cur_wall_hls_color = cv2.cvtColor(cur_avg_gray_value, cv2.COLOR_BGR2HLS)
-                    prev_h, prev_l, prev_s = prev_wall_hls_color[0,0,0], prev_wall_hls_color[0,0,1], prev_wall_hls_color[0,0,2]
-                    cur_h, cur_l, cur_s = cur_wall_hls_color[0,0,0], cur_wall_hls_color[0,0,1], cur_wall_hls_color[0,0,2]
+                    prev_h, prev_l, prev_s = prev_wall_hls_color[0, 0, 0], prev_wall_hls_color[0, 0, 1], \
+                                             prev_wall_hls_color[0, 0, 2]
+                    cur_h, cur_l, cur_s = cur_wall_hls_color[0, 0, 0], cur_wall_hls_color[0, 0, 1], cur_wall_hls_color[
+                        0, 0, 2]
 
                     if np.abs(np.int32(prev_l) - np.int32(cur_l)) > 50:
                         diff_pixels_number += cur_wall_section.shape[0]
@@ -158,21 +184,37 @@ class WallAlignment(object):
             # 往那个方向寻找
             if increase_flag:
                 boundary_pos += 1
-                if (direction == 0 and boundary_pos >= self.image_height) or (direction == 1 and boundary_pos >= self.image_width):
+                if (direction == 0 and boundary_pos >= self.image_height) or (
+                        direction == 1 and boundary_pos >= self.image_width):
                     return -1, False, np.mean(cur_avg_gray_value)
             else:
                 boundary_pos -= 1
                 if boundary_pos < 0:
                     return -1, False, np.mean(cur_avg_gray_value)
         if dark_to_light_flag:
-            if direction==0 and increase_flag:
+            if direction == 0 and increase_flag:
                 boundary_pos
-            elif direction==0 and not increase_flag:
-                boundary_pos +=1
-            elif direction==1 and not increase_flag:
+            elif direction == 0 and not increase_flag:
+                boundary_pos += 1
+            elif direction == 1 and not increase_flag:
                 boundary_pos += 1
         # return boundary_pos - 1 if increase_flag else boundary_pos+1
         return boundary_pos, dark_to_light_flag, np.mean(cur_avg_gray_value)
+
+    def _calculate_line_piexl(self, x1, y1, x2, y2):
+        if (x2 - x1) == 0:
+            print('斜率不存在')
+        a = (y2 - y1) / (x2 - x1)
+        b = y1 - x1 * ((y2 - y1) / (x2 - x1))
+        line_piexl = []
+        for i in range(int(x2)):
+            if i <= int(x1):
+                continue
+            elif i > int(x1) & i <= int(x2):
+                y = int(a * i + b)
+                line_piexl.append([i, y])  # 原直线
+        line_piexl = np.array(line_piexl)
+        return line_piexl
 
     def _align_wall_line(self, cur_wall_line):
         start_pt = cur_wall_line.start_point
@@ -194,7 +236,7 @@ class WallAlignment(object):
         for cur_opening in cur_wall_line.openings:
             wall_section_points.append(cur_opening.start_point)
             wall_section_points.append(cur_opening.end_point)
-        if wall_line_dim == 0:
+        if wall_line_dim == 0 or wall_line_dim == -1:
             wall_section_points = sorted(wall_section_points, key=lambda obj: obj.x)
         else:
             # 没有对斜墙的点做排序，可以通过斜率来计算斜墙方向 或者就按
@@ -202,25 +244,27 @@ class WallAlignment(object):
 
         wall_sections = []
         for i in range(0, len(wall_section_points), 2):
-            wall_sections.append([wall_section_points[i], wall_section_points[i+1]])
+            wall_sections.append([wall_section_points[i], wall_section_points[i + 1]])
 
         start_pt_heatmap_x_center, start_pt_heatmap_y_center = start_pt.get_heat_map_centroid()
         end_pt_heatmap_x_center, end_pt_heatmap_y_center = end_pt.get_heat_map_centroid()
 
         if wall_line_dim == 0:
             # 如果平行X轴，计算平行方向上的厚度。找到变化的那条横线。
-            center_pos = int(0.5*(start_pt_heatmap_y_center + end_pt_heatmap_y_center))
-        elif wall_line_dim == 1 :
+            center_pos = int(0.5 * (start_pt_heatmap_y_center + end_pt_heatmap_y_center))
+        elif wall_line_dim == 1:
             # 如果平行Y轴，计算竖直方向上的厚度。找到变化的那条竖线。
             center_pos = int(0.5 * (start_pt_heatmap_x_center + end_pt_heatmap_x_center))
         elif wall_line_dim == -1:
-            start_pt_heatmap_x_gap, start_pt_heatmap_y_gap = start_pt.get_heat_map_boundary()
-            center_pos = start_pt_heatmap_x_gap
-            return True
+            center_pos = start_pt_heatmap_x_center
 
-
-        up_boundary_pos, up_dark_to_light_flag, up_boundary_gray_value = self._find_boundary_line(center_pos, wall_sections, wall_line_dim)
-        down_boundary_pos, down_dark_to_light_flag, down_boundary_gray_value = self._find_boundary_line(center_pos, wall_sections, wall_line_dim, increase_flag=False)
+        up_boundary_pos, up_dark_to_light_flag, up_boundary_gray_value = self._find_boundary_line(center_pos,
+                                                                                                  wall_sections,
+                                                                                                  wall_line_dim)
+        down_boundary_pos, down_dark_to_light_flag, down_boundary_gray_value = self._find_boundary_line(center_pos,
+                                                                                                        wall_sections,
+                                                                                                        wall_line_dim,
+                                                                                                        increase_flag=False)
 
         success_flag = True if up_boundary_pos > 0 and down_boundary_pos > 0 else False
         if not success_flag:
@@ -383,7 +427,7 @@ class WallAlignment(object):
         avg_value = 0.0
         for cur_wall in wall_sections:
             avg_value += 0.5 * (cur_wall.boundary_range_box[0] + cur_wall.boundary_range_box[2]) if direction == 1 else \
-                         0.5 * (cur_wall.boundary_range_box[1] + cur_wall.boundary_range_box[3])
+                0.5 * (cur_wall.boundary_range_box[1] + cur_wall.boundary_range_box[3])
         avg_value /= len(wall_sections)
 
         # fine tune
@@ -488,6 +532,9 @@ class WallAlignment(object):
                 if is_outer_wall:
                     cur_wall.is_outer_wall = True
 
+    def _point_distance(self, x1, y1, x2, y2):
+        return max(abs(x1 - x2), abs(y1 - y2))
+        # return np.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2)
     def align(self):
 
         self._predict_outer_walls()
@@ -503,7 +550,6 @@ class WallAlignment(object):
         self._update_walls_type(inner_wall_thickness, outer_wall_thickness)
 
         # 2.补救一些没有完全设置好的boundary value.
-        # 默认range box为点的坐标值。这个是有误差的，但没有其他的办法。
         for cur_unaligned_wall in unalign_wall_lines:
             line_dim = cur_unaligned_wall.line_dim()
             if line_dim == 0:
@@ -512,6 +558,16 @@ class WallAlignment(object):
                 if cur_unaligned_wall.boundary_range_box[2] < 0:
                     cur_unaligned_wall.boundary_range_box[2] = cur_unaligned_wall.end_point.x
             elif line_dim == 1:
+                if cur_unaligned_wall.boundary_range_box[1] < 0:
+                    cur_unaligned_wall.boundary_range_box[1] = cur_unaligned_wall.start_point.y
+                if cur_unaligned_wall.boundary_range_box[3] < 0:
+                    cur_unaligned_wall.boundary_range_box[3] = cur_unaligned_wall.end_point.y
+            elif line_dim == -1:
+                # 接近无用功
+                if cur_unaligned_wall.boundary_range_box[0] < 0:
+                    cur_unaligned_wall.boundary_range_box[0] = cur_unaligned_wall.start_point.x
+                if cur_unaligned_wall.boundary_range_box[2] < 0:
+                    cur_unaligned_wall.boundary_range_box[2] = cur_unaligned_wall.end_point.x
                 if cur_unaligned_wall.boundary_range_box[1] < 0:
                     cur_unaligned_wall.boundary_range_box[1] = cur_unaligned_wall.start_point.y
                 if cur_unaligned_wall.boundary_range_box[3] < 0:
@@ -529,13 +585,15 @@ class WallAlignment(object):
                 if direction == 0:
                     if cur_unaligned_wall.boundary_range_box[1] < 0 or cur_unaligned_wall.boundary_range_box[3] < 0:
                         # y值未定，就是水平方向上的厚度没定
-                        if cur_unaligned_wall.set_thickness_boundary_by_connect_wall(inner_wall_thickness, outer_wall_thickness):
+                        if cur_unaligned_wall.set_thickness_boundary_by_connect_wall(inner_wall_thickness,
+                                                                                     outer_wall_thickness):
                             pass
-                else:
+                elif direction == 1:
                     if cur_unaligned_wall.boundary_range_box[0] < 0 or cur_unaligned_wall.boundary_range_box[2] < 0:
                         # 找到start point and end point， 看它们是否被设置。
                         # x boundary值未定，也就是竖直方向上的厚度没定。
-                        cur_unaligned_wall.set_thickness_boundary_by_connect_wall(inner_wall_thickness, outer_wall_thickness)
+                        cur_unaligned_wall.set_thickness_boundary_by_connect_wall(inner_wall_thickness,
+                                                                                  outer_wall_thickness)
 
                 if not cur_unaligned_wall.is_aligned():
                     new_unalign_wall_lines.append(cur_unaligned_wall)
@@ -551,8 +609,6 @@ class WallAlignment(object):
             self._fine_tune_align_wall_sections_by_point(cur_wall_point, 0)
             self._fine_tune_align_wall_sections_by_point(cur_wall_point, 1)
 
-
-
         # 设置墙Junction点的坐标
         for cur_wall_line in self.all_wall_lines:
             direction = cur_wall_line.line_dim()
@@ -564,4 +620,19 @@ class WallAlignment(object):
                 center = 0.5 * (cur_wall_line.boundary_range_box[0] + cur_wall_line.boundary_range_box[2])
                 cur_wall_line.start_point.x = center
                 cur_wall_line.end_point.x = center
-
+            elif direction == -1:
+                x1 = cur_wall_line.start_point.x
+                y1 = cur_wall_line.start_point.y
+                x2 = cur_wall_line.end_point.x
+                y2 = cur_wall_line.end_point.y
+                for point in self.all_wall_points:
+                    if x1 != point.x or y1 != point.y:
+                        start_distance = self._point_distance(x1, y1, point.x, point.y)
+                        if start_distance <= 15:
+                            cur_wall_line.start_point.x = point.x
+                            cur_wall_line.start_point.y = point.y
+                    if x2 != point.x or y2 != point.y:
+                        end_distance = self._point_distance(x2, y2, point.x, point.y)
+                        if end_distance <= 15:
+                            cur_wall_line.end_point.x = point.x
+                            cur_wall_line.end_point.y = point.y
