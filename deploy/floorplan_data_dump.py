@@ -175,7 +175,7 @@ class FloorplanDataDump(object):
 
                     door_direction = cur_door.get_door_direction()
                     if door_direction == -1:
-                        a=1
+                        a = 1
                     # 水平门
                     if wall_start_y == wall_end_y:
                         if door_direction == 0:  # 图片中，门朝上
@@ -248,6 +248,8 @@ class FloorplanDataDump(object):
             if wall_list[wall_index][4] < self.max_wall_thickness * ratio:
                 thickness = 0.12
                 is_bearing = False
+            elif wall_list[wall_index][4] > 0.5:
+                thickness = 0.24
             else:
                 thickness = wall_list[wall_index][4]
             wall_info = {

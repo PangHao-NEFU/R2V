@@ -595,6 +595,9 @@ class WallLine(object):
             else:
                 self.boundary_range_box[0] = self.start_point.x - 0.5 * wall_thickness_limit
                 self.boundary_range_box[2] = self.start_point.x + 0.5 * wall_thickness_limit
+        elif direction == -1:
+            self.boundary_range_box[1] = self.start_point.y - 0.5 * wall_thickness_limit
+            self.boundary_range_box[3] = self.start_point.y + 0.5 * wall_thickness_limit
 
     def get_wall_thickness(self):
         direction = self.line_dim()
@@ -605,12 +608,14 @@ class WallLine(object):
                 return -1
             else:
                 return np.abs(self.boundary_range_box[0] - self.boundary_range_box[2])
-        else:
+        elif direction == 0:
             # max_x - min_x
             if self.boundary_range_box[1] < 0 or self.boundary_range_box[3] < 0:
                 return -1
             else:
                 return np.abs(self.boundary_range_box[1] - self.boundary_range_box[3])
+        elif direction == -1:
+            return np.abs(self.boundary_range_box[1] - self.boundary_range_box[3])
 
     def get_wall_length(self):
         if self.line_dim() == 0:

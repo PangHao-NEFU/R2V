@@ -1256,7 +1256,7 @@ class Builder(object):
                     # a=1
                     if cur_max_value <= 0.4:  # 这个阈值受斜墙与直墙corner的识别结果
                         break
-                elif cur_max_value <= heat_map_threshold:
+                elif cur_max_value <= 0.2:
                     break
 
                 # the pixels.
