@@ -1272,19 +1272,41 @@ class PreprocessDataSJJ(object):
                     round(max(point_1.y, point_2.y)))
 
                 if line_dim == 0:
-                    image[max(fixedValue - line_width, 0):min(fixedValue + line_width, self.floor_plan_img_height),minValue:maxValue + 1, :] = line_color
+                    image[max(fixedValue - line_width, 0):min(fixedValue + line_width, self.floor_plan_img_height),
+                    minValue:maxValue + 1, :] = line_color
 
-                    cv2.putText(image, str(wall_line.p_id), (int(0.5 * (maxValue + minValue)), fixedValue),
-                                cv2.FONT_HERSHEY_COMPLEX_SMALL, 1,
-                                (0, 255, 0))
+                    # cv2.putText(image, str((wall_line.start_point.x, wall_line.start_point.y)),
+                    #             (wall_line.start_point.x, wall_line.start_point.y - 10),
+                    #             cv2.FONT_HERSHEY_COMPLEX_SMALL, 0.6,
+                    #             (0, 0, 0))
+                    # cv2.putText(image, str((wall_line.end_point.x, wall_line.end_point.y)),
+                    #             (wall_line.end_point.x, wall_line.end_point.y),
+                    #             cv2.FONT_HERSHEY_COMPLEX_SMALL, 0.6,
+                    #             (0, 0, 0))
                 elif line_dim == 1:
-                    image[minValue:maxValue + 1,max(fixedValue - line_width, 0):min(fixedValue + line_width, self.floor_plan_img_width),:] = line_color
+                    image[minValue:maxValue + 1,
+                    max(fixedValue - line_width, 0):min(fixedValue + line_width, self.floor_plan_img_width),
+                    :] = line_color
                     # #
-                    cv2.putText(image, str(wall_line.p_id), (fixedValue, int(0.5 * (maxValue + minValue))),
-                                cv2.FONT_HERSHEY_COMPLEX_SMALL, 1,
-                                (0, 255, 0))
+                    # cv2.putText(image, str((wall_line.start_point.x, wall_line.start_point.y + 20)),
+                    #             (wall_line.start_point.x, wall_line.start_point.y),
+                    #             cv2.FONT_HERSHEY_COMPLEX_SMALL, 0.6,
+                    #             (0, 0, 0))
+                    #
+                    # cv2.putText(image, str((wall_line.end_point.x, wall_line.end_point.y + 20)),
+                    #             (wall_line.end_point.x, wall_line.end_point.y),
+                    #             cv2.FONT_HERSHEY_COMPLEX_SMALL, 0.6,
+                    #             (0, 0, 0))
                 elif line_dim == -1:
-                    cv2.line(image, (point_1.x, point_1.y), (point_2.x, point_2.y), (255, 0, 0), 5)
+                    cv2.line(image, (point_1.x, point_1.y), (point_2.x, point_2.y), (255, 0, 0), 3)
+                    # cv2.putText(image, str((wall_line.start_point.x, wall_line.start_point.y)),
+                    #             (wall_line.start_point.x, wall_line.start_point.y),
+                    #             cv2.FONT_HERSHEY_COMPLEX_SMALL, 0.6,
+                    #             (0, 0, 0))
+                    # cv2.putText(image, str((wall_line.end_point.x, wall_line.end_point.y)),
+                    #             (wall_line.end_point.x, wall_line.end_point.y),
+                    #             cv2.FONT_HERSHEY_COMPLEX_SMALL, 0.6,
+                    #             (0, 0, 0))
 
             if save_flag:
                 wall_lines_res_file_path = os.path.join(self.res_sub_folder_path, "{0}.jpg".format(file_name))
@@ -1348,26 +1370,35 @@ class PreprocessDataSJJ(object):
 
             all_wall_points = list(self.all_wall_points.values())
             img_data = cv2.imread(self.cad_image_resized_file_path)
+            tmp_resize_data = np.ones(
+                (img_data.shape[0], img_data.shape[1], 3),
+                np.uint8) * 255
             back_groud_img_data = img_data.copy()
-            self.draw_points(all_wall_points, background_img_data=back_groud_img_data, file_name="WallPoint")
-            back_groud_img_data = img_data.copy()
-            self.draw_points(self.all_door_points, background_img_data=back_groud_img_data, file_name="DoorPoint")
-            back_groud_img_data = img_data.copy()
-            self.draw_points(self.all_opening_points, background_img_data=back_groud_img_data, file_name="OpeningPoint")
-            back_groud_img_data = img_data.copy()
-            self.draw_points(self.all_hole_points, line_width=2, background_img_data=back_groud_img_data,
-                             file_name="HolePoint")
-            back_groud_img_data = img_data.copy()
+            back_groud_img_data = (back_groud_img_data.astype(np.float32) - 150)
+            # back_groud_img_data = tmp_resize_data.copy()
             self.draw_lines(self.all_wall_segments, line_width=2, background_img_data=back_groud_img_data,
                             file_name="WallLines")
-            back_groud_img_data = img_data.copy()
+            # back_groud_img_data = tmp_resize_data.copy()
             self.draw_lines(self.all_opening_lines, line_width=2, background_img_data=back_groud_img_data,
                             file_name="OpeningLines")
-            back_groud_img_data = img_data.copy()
+            # back_groud_img_data = tmp_resize_data.copy()
             self.draw_lines(self.all_door_lines, line_width=2, background_img_data=back_groud_img_data,
                             file_name="DoorLines")
-            back_groud_img_data = img_data.copy()
+            # back_groud_img_data = tmp_resize_data.copy()
             self.draw_lines(self.all_holes, line_width=2, background_img_data=back_groud_img_data, file_name="Holes")
+
+            self.draw_points(all_wall_points, background_img_data=back_groud_img_data, file_name="WallPoint",
+                             rgb_color=[0, 255, 0])
+            # back_groud_img_data = tmp_resize_data.copy()
+            self.draw_points(self.all_door_points, background_img_data=back_groud_img_data, file_name="DoorPoint",
+                             rgb_color=[255, 0, 0])
+            # back_groud_img_data = tmp_resize_data.copy()
+            self.draw_points(self.all_opening_points, background_img_data=back_groud_img_data, file_name="OpeningPoint",
+                             rgb_color=[0, 0, 255])
+            # back_groud_img_data = tmp_resize_data.copy()
+            self.draw_points(self.all_hole_points, line_width=2, background_img_data=back_groud_img_data,
+                             file_name="HolePoint")
+
 
             self._save_training_data()
         except Exception as err:

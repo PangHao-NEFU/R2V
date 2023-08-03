@@ -28,7 +28,7 @@ class DebugInfo(object):
 
         cv2.imwrite(os.path.join(res_folder_path, name+".png"), image)
 
-    def save_corner_heatmaps_img(self, corner_tensor, img_transfor_obj = None, res_folder_path=r"D:\tmp", sample_index = 0):
+    def save_corner_heatmaps_img(self, corner_tensor, img_transfor_obj = None, res_folder_path=r"D:\tmp", sample_index = 0,corner_base_pred=None):
         try:
             if not os.path.exists(res_folder_path):
                 os.makedirs(res_folder_path)
@@ -54,7 +54,7 @@ class DebugInfo(object):
                         cur_heatmap *= 100
                     elif i < 8 + 13 + 28 + 4:
                         cur_heatmap_file_path = os.path.join(res_folder_path, "door_heatmap_{0}.png".format(i + 1 - 13 - 8))
-                        cur_heatmap *= 100
+                        cur_heatmap *= 170
                     else:
                         cur_heatmap_file_path = os.path.join(res_folder_path, "icon_heatmap_{0}.png".format(i + 1 - 8 - 13 - 28 - 4))
                         cur_heatmap *= 255
@@ -63,8 +63,8 @@ class DebugInfo(object):
                     if img_transfor_obj is not None:
                         cur_heatmap = img_transfor_obj.mapping_2_original_image_size(cur_heatmap)
                     cv2_write_image_light(cur_heatmap, cur_heatmap_file_path)
-                    if i<13:
-                        all_cur_heatmaps.append(cur_heatmap)
+                    if 13>i:
+                     all_cur_heatmaps.append(cur_heatmap)
             temp = all_cur_heatmaps[len(all_cur_heatmaps)-1]
             for i in range(len(all_cur_heatmaps)-1):
                 temp+=all_cur_heatmaps[i]
@@ -94,6 +94,7 @@ class WallBuilderDataDump(object):
         #     np.uint8) * 255
 
         back_ground_img = self.wall_builder_obj.floor_plan_img_data.copy()
+        back_ground_img = (back_ground_img.astype(np.float32) - 100)
         self._draw_wall_lines(self.wall_builder_obj.all_wall_lines, line_width=2,
                               back_ground_img=back_ground_img,
                               rgb_color=[255, 0, 0])
@@ -110,22 +111,22 @@ class WallBuilderDataDump(object):
         self._draw_door_lines(self.wall_builder_obj.all_door_lines,
                               back_ground_img=back_ground_img)
 
-        back_ground_img = self.wall_builder_obj.floor_plan_img_data.copy()
+        # back_ground_img = self.wall_builder_obj.floor_plan_img_data.copy()
         self._draw_wall_points(self.wall_builder_obj.all_wall_points, file_name="WallPoints.png",
                                back_ground_img=back_ground_img,
-                               rgb_color=[255, 255, 0])
+                               rgb_color=[0, 255, 0])
 
-        back_ground_img = self.wall_builder_obj.floor_plan_img_data.copy()
+        # back_ground_img = self.wall_builder_obj.floor_plan_img_data.copy()
         self._draw_wall_points(self.wall_builder_obj.all_opening_points, file_name="OpeningPoints.png",
-                               line_width=2,
+                               # line_width=2,
                                back_ground_img=back_ground_img,
-                               rgb_color=[255, 0, 255])
+                               rgb_color=[0, 0, 255])
 
-        back_ground_img = self.wall_builder_obj.floor_plan_img_data.copy()
+        # back_ground_img = self.wall_builder_obj.floor_plan_img_data.copy()
         self._draw_wall_points(self.wall_builder_obj.all_door_points, file_name="DoorPoints.png",
-                               line_width=2,
+                               # line_width=2,
                                back_ground_img=back_ground_img,
-                               rgb_color=[0, 255, 255])
+                               rgb_color=[255, 0, 0])
 
         self._create_summary_results()
 
@@ -142,9 +143,9 @@ class WallBuilderDataDump(object):
             img_mask = back_ground_img
 
         line_color = np.random.rand(3) * 255
-        line_color[0] = rgb_color[1]
-        line_color[1] = rgb_color[2]
-        line_color[2] = rgb_color[0]
+        line_color[0] = rgb_color[0]
+        line_color[1] = rgb_color[1]
+        line_color[2] = rgb_color[2]
 
         for cur_wall_point in all_wall_points:
             color = (0, 255, 0)
@@ -156,7 +157,7 @@ class WallBuilderDataDump(object):
             x, y = cur_wall_point.x, cur_wall_point.y
             img_mask[max(y - line_width, 0):min(y + line_width, self.wall_builder_obj.floor_plan_img_height - 1),
             max(x - line_width, 0):min(x + line_width, self.wall_builder_obj.floor_plan_img_width - 1)] = line_color
-            cv2.putText(img_mask, (str(x)+','+str(y)), (x, y), cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, color)
+            # cv2.putText(img_mask, (str(x)+','+str(y)), (x, y), cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, color)
 
         file_path = self._get_file_path(file_name)
         cv2_write_image(img_mask, file_path)
@@ -203,10 +204,12 @@ class WallBuilderDataDump(object):
         else:
             image = back_ground_img
 
-        line_color = np.array([rgb_color[1], rgb_color[2], rgb_color[0]])
+        # line_color = np.array([rgb_color[1], rgb_color[2], rgb_color[0]])
+
         bay_window_color = np.array([bay_window_color[1], bay_window_color[2], bay_window_color[0]])
 
         for i in range(len(wall_lines)):
+            line_color = np.random.rand(3) * 255
             wall_line = wall_lines[i]
             point_1 = wall_line.start_point
             point_2 = wall_line.end_point
@@ -231,12 +234,12 @@ class WallBuilderDataDump(object):
                 max(fixedValue - line_width, 0):min(fixedValue + line_width, self.wall_builder_obj.floor_plan_img_width), :] = draw_color
             else:
                 cv2.line(image, (point_1.x, point_1.y), (point_2.x, point_2.y), (int(draw_color[1]), int(draw_color[2]), int(draw_color[0])), 2)
-                cv2.putText(image, str(wall_line.id),(point_1.x, point_1.y), cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (int(draw_color[1]), int(draw_color[2]), int(draw_color[0])))
+                # cv2.putText(image, str(wall_line.id),(point_1.x, point_1.y), cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (int(draw_color[1]), int(draw_color[2]), int(draw_color[0])))
 
             if wall_line.actual_space_length > 0:
                 x = int(0.5 * (point_1.x + point_2.x))
                 y = int(0.5 * (point_1.y + point_2.y))
-                cv2.putText(image, str(int(wall_line.actual_space_length * 1000.0)), (x, y), cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (255, 0, 0))
+                # cv2.putText(image, str(int(wall_line.actual_space_length * 1000.0)), (x, y), cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (255, 0, 0))
 
         file_path = self._get_file_path(file_name)
         cv2_write_image(image, file_path)

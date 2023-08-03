@@ -23,6 +23,7 @@ class ModelHandler(object):
         args_t = parse_args()
         print("model load start~")
         self.model = Predict(args_t, model_config_path)
+        self.model_base = Predict(args_t, model_config_path)
         print("model load over~")
         self._context = context
         self.initialized = True

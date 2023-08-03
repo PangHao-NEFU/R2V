@@ -17,9 +17,10 @@ from imagetransform import *
 
 
 class Predict(object):
-    def __init__(self, options, model_config_path=''):
+    def __init__(self, options, model_config_path='',model_base_config_path=''):
 
         self.model_config_path = model_config_path
+        self.model_base_config_path = model_base_config_path
 
         self.options = options
 
@@ -43,11 +44,15 @@ class Predict(object):
             if not torch.cuda.is_available():
                 self.options.gpuFlag = 0
         self.model = Model(self.options)
+        self.model_base = Model(self.options)
         if self.options.gpuFlag == 1:
             self.model.load_state_dict(torch.load(self.model_config_path))
             self.model = self.model.cuda()
+            self.model_base.load_state_dict(torch.load(self.model_base_config_path))
+            self.model_base = self.model.cuda()
         else:
             self.model.load_state_dict(torch.load(self.model_config_path, map_location='cpu'))
+            self.model_base.load_state_dict(torch.load(self.model_base_config_path, map_location='cpu'))
 
         self.debug_util_obj = DebugInfo(self.options)
 
@@ -86,19 +91,26 @@ class Predict(object):
             start = time.time()
             # 2. predict the results.
             corner_pred = self.model(image_tensor)
+            corner_base_pred = self.model_base(image_tensor)
             print("predict model cost {0}".format(time.time() - start))
             if self.options.debugFlag == 1:
-                self.debug_util_obj.save_corner_heatmaps_img(corner_pred[0], self.image_transform,
-                                                             res_folder_path=self.options.res_folder_path)
+                self.debug_util_obj.save_corner_heatmaps_img(corner_base_pred[0], self.image_transform,
+                                                             res_folder_path=self.options.res_folder_path,corner_base_pred=corner_pred[0])
 
             start = time.time()
             # 3. get the prediction data.
+            corner_base_heatmaps = corner_base_pred[0].detach().cpu().numpy()
+            corner_base_heatmaps = corner_base_heatmaps[0]
+
             corner_heatmaps = corner_pred[0].detach().cpu().numpy()
             corner_heatmaps = corner_heatmaps[0]
 
             all_heatmap_data = []
-            for i in range(corner_heatmaps.shape[2]):
-                cur_heatmap = corner_heatmaps[:, :, i]
+            for i in range(corner_base_heatmaps.shape[2]):
+                if i<4:
+                    cur_heatmap = corner_heatmaps[:, :, i]
+                else:
+                    cur_heatmap = corner_base_heatmaps[:, :, i]
                 if self.image_transform is not None:
                     # heatmap图片尺寸适配
                     cur_heatmap = self.image_transform.mapping_2_original_image_size(cur_heatmap)
@@ -138,9 +150,10 @@ if __name__ == "__main__":
     imagePath2 = "2caf3f3e-6225-4ee2-a74f-b98d7881e09c.jpg"  # 多斜墙
     imagePath3 = "0ad81247-8ac5-4287-ba1e-ea500e113298.jpg"  # 多斜墙
     imagePath4 ="2b2f621c-f6b0-48c7-b785-b425097df544.png"
-    imagePath5 = "4147.jpg"
-    img_file_path = os.path.join(folder_path, "check/detectData/" + imagePath5)
+    imagePath5 = "00c7c124-dd49-4ee6-83e7-9795bbc7d41e.png"
+    img_file_path = os.path.join(folder_path, "check/detectData/" + imagePath1)
     model_config_path = 'checkpoint/checkpoint_940.pth'
-    predictor = Predict(args, model_config_path)
+    model_base_config_path = 'checkpoint/checkpoint.pth'
+    predictor = Predict(args, model_config_path,model_base_config_path)
     res = predictor.predict(img_file_path, type="111")  # type=url是从ossUrl读数据
     print(res)

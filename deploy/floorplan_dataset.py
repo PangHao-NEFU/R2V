@@ -1,8 +1,10 @@
+import copy
+
 from torch.utils.data import Dataset
 
 import time
 
-from models.utils import *
+from utils import *
 from skimage import measure
 import cv2
 
@@ -507,19 +509,22 @@ class FloorplanDataset(Dataset):
             cornerSegmentation[min(max(corner[1], 0), height - 1), min(max(corner[0], 0), width - 1), corner[2] - 1] = 1
             continue
 
-        if False:
-            cv2.imwrite('test/image.png', image_ori)
-            cv2.imwrite('test/icon_segmentation.png', drawSegmentationImage(iconSegmentation))
-            cv2.imwrite('test/room_segmentation.png', drawSegmentationImage(roomSegmentation))
-            cv2.imwrite('test/corner_segmentation.png', drawSegmentationImage(cornerSegmentation, blackIndex=0))
-            exit(1)
-            pass
-
+        image_copy = copy.deepcopy(image)
         image = (image.astype(np.float32) / 255 - 0.5).transpose((2, 0, 1))
         kernel = np.zeros((3, 3), dtype=np.uint8)
         kernel[1] = 1
         kernel[:, 1] = 1
         cornerSegmentation = cv2.dilate(cornerSegmentation, kernel, iterations=5)
+
+        if True:
+            cv2.imwrite('test/image'+str(index)+'.png', image_copy)
+            cv2.imwrite('test/icon_segmentation'+str(index)+'.png', drawSegmentationImage(iconSegmentation))
+            cv2.imwrite('test/room_segmentation'+str(index)+'.png', drawSegmentationImage(roomSegmentation))
+            cv2.imwrite('test/corner_segmentation'+str(index)+'.png', drawSegmentationImage(cornerSegmentation, blackIndex=0))
+            # exit(1)
+            # pass
+
+
 
         sample = [image, cornerSegmentation.astype(np.float32), iconSegmentation.astype(np.int64),
                   roomSegmentation.astype(np.int64)]

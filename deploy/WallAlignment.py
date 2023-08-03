@@ -52,7 +52,7 @@ class WallAlignment(object):
                         continue
 
                     other_wall_dim = other_wall.line_dim()
-                    if cur_wall_dim != other_wall_dim:
+                    if cur_wall_dim != other_wall_dim and other_wall_dim!=-1:
                         continue
 
                     if other_wall_dim == 0:
@@ -61,9 +61,14 @@ class WallAlignment(object):
                             if other_wall.start_point.x <= line_coordinate[0] <= other_wall.end_point.x:
                                 has_intersect_wall = True
                                 break
-                    else:
+                    elif other_wall_dim == 1:
                         if line_coordinate[0] <= other_wall.start_point.x <= line_coordinate[2]:
                             if other_wall.start_point.y <= line_coordinate[1] <= other_wall.end_point.y:
+                                has_intersect_wall = True
+                                break
+                    elif other_wall_dim == -1:
+                        if line_coordinate[0] <= other_wall.start_point.x <= line_coordinate[2]:
+                            if other_wall.start_point.y <= line_coordinate[1] <= other_wall.end_point.y or other_wall.start_point.y >= line_coordinate[1] >= other_wall.end_point.y:
                                 has_intersect_wall = True
                                 break
                 intersect_res.append(has_intersect_wall)
@@ -608,18 +613,20 @@ class WallAlignment(object):
         for cur_wall_point in self.all_wall_points:
             self._fine_tune_align_wall_sections_by_point(cur_wall_point, 0)
             self._fine_tune_align_wall_sections_by_point(cur_wall_point, 1)
-
-        # 设置墙Junction点的坐标
+        #
+        # # 设置墙Junction点的坐标
         for cur_wall_line in self.all_wall_lines:
             direction = cur_wall_line.line_dim()
             if direction == 0:
                 center = 0.5 * (cur_wall_line.boundary_range_box[1] + cur_wall_line.boundary_range_box[3])
-                cur_wall_line.start_point.y = center
-                cur_wall_line.end_point.y = center
+                if np.abs(center-cur_wall_line.start_point.y)<20:
+                    cur_wall_line.start_point.y = center
+                    cur_wall_line.end_point.y = center
             elif direction == 1:
                 center = 0.5 * (cur_wall_line.boundary_range_box[0] + cur_wall_line.boundary_range_box[2])
-                cur_wall_line.start_point.x = center
-                cur_wall_line.end_point.x = center
+                if np.abs(center - cur_wall_line.start_point.x) < 20:
+                    cur_wall_line.start_point.x = center
+                    cur_wall_line.end_point.x = center
             elif direction == -1:
                 x1 = cur_wall_line.start_point.x
                 y1 = cur_wall_line.start_point.y

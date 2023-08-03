@@ -180,7 +180,7 @@ class Builder(object):
                 cur_category = int(i / 4)
                 cur_sub_category = i % 4
                 cur_heat_map_img = self.transform_image_data(cur_heat_map_img)
-                all_opening_points.extend(self._extract_junctions(cur_heat_map_img, 300, cur_category, cur_sub_category,
+                all_opening_points.extend(self._extract_junctions(cur_heat_map_img, 100, cur_category, cur_sub_category,
                                                                   self.heat_map_wall_threshold))
 
             all_door_points = []
@@ -908,7 +908,7 @@ class Builder(object):
                         # if dist < 0.35 * self.same_point_distance_threshold:
                         #     duplicated_points.append(tmp_point)
                         #     continue
-                        if (dist < 0.5 * self.same_point_distance_threshold) and heap_map_scope_length < 10:
+                        if (dist < 0.5 * self.same_point_distance_threshold) and heap_map_scope_length < 15:
                             # heat_map所占据的范围很小，是duplicated points
                             duplicated_points.append(tmp_point)
                             continue
@@ -1254,9 +1254,9 @@ class Builder(object):
                 cur_max_value = heat_map_img_mask[y, x]
                 if junction_class == 0 and junction_type_category == 0:
                     # a=1
-                    if cur_max_value <= 0.4:  # 这个阈值受斜墙与直墙corner的识别结果
+                    if cur_max_value <= 0.5:  # 这个阈值受斜墙与直墙corner的识别结果
                         break
-                elif cur_max_value <= 0.2:
+                elif cur_max_value <= 0.5:
                     break
 
                 # the pixels.
