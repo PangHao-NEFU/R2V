@@ -1,7 +1,6 @@
+import numpy as np
 import torch
 from torch import nn
-from dataPreprocess.dataCheck.utils import *
-from baseinc import fpLog
 
 ## Conv + bn + relu
 class ConvBlock(nn.Module):
@@ -22,7 +21,6 @@ class ConvBlock(nn.Module):
         elif mode == 'deconv_3d':
             self.conv = nn.ConvTranspose3d(in_planes, out_planes, kernel_size=kernel_size, stride=stride, padding=padding, bias=False)
         else:
-            fpLog.info('conv mode not supported', mode)
             exit(1)
             pass
         if self.use_bn:
@@ -132,7 +130,7 @@ def oneHotModule(inp, depth):
 ## Warp image
 def warpImages(options, planes, images, transformations, metadata):
     planeDepths, ranges = calcPlaneDepthsModule(options.width, options.height, planes, metadata, return_ranges=True)
-    fpLog.info(planeDepths.shape, ranges.shape, transformations.shape)
+    print(planeDepths.shape, ranges.shape, transformations.shape)
     exit(1)
     XYZ = planeDepths.unsqueeze(-1) * ranges.unsqueeze(-2)
     XYZ = torch.cat([XYZ, torch.ones([int(size) for size in XYZ.shape[:-1]] + [1]).cuda()], dim=-1)

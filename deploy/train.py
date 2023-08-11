@@ -2,14 +2,13 @@ import torch
 from torch.utils.data import DataLoader
 
 from tqdm import tqdm
-import os
 
 from dataPreprocess.dataCheck.utils import *
 from options import parse_args
 
-from models.model import Model
+from model import Model
 
-from datasets.floorplan_dataset import FloorplanDataset
+from deploy.floorplan_dataset import FloorplanDataset
 from IP import reconstructFloorplan
 
 def main(options):
