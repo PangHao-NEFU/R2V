@@ -636,6 +636,7 @@ class WallLine(object):
                 for tmp_wall in self.start_point.wall_lines:
                     if tmp_wall.id == self.id or tmp_wall.line_dim() != 1:
                         continue
+
                     wall_left_limit = tmp_wall.boundary_range_box[2]
                     break
                 for tmp_wall in self.end_point.wall_lines:
@@ -657,7 +658,7 @@ class WallLine(object):
                 # 限制Opening.start_point.x and Opening.end_point.x
                 if opening.start_point.x < wall_left_limit:
                     opening.start_point.x = wall_left_limit
-                if 0 < wall_right_limit < opening.end_point.x:
+                if wall_left_limit<wall_left_limit and 0 < wall_right_limit < opening.end_point.x:
                     opening.end_point.x = wall_right_limit
         elif direction == 1:
             wall_down_limit = 0.0
@@ -686,7 +687,7 @@ class WallLine(object):
 
                 if opening.start_point.y < wall_down_limit:
                     opening.start_point.y = wall_down_limit
-                if 0 < wall_up_limit < opening.end_point.y:
+                if wall_down_limit<wall_up_limit and 0 < wall_up_limit < opening.end_point.y:
                     opening.end_point.y = wall_up_limit
         elif direction == -1:
             wall_down_limit = 0.0

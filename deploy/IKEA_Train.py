@@ -4,13 +4,13 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 import os
 
-# from baseinc import fpLog
-from utils import *
+from baseinc import fpLog
+from utils_ikea import *
 from options import parse_args
 
 from model import Model
 
-from deploy.floorplan_dataset import FloorplanDataset
+from datasets.floorplan_dataset import FloorplanDataset
 from IP import reconstructFloorplan
 
 
@@ -222,6 +222,6 @@ if __name__ == '__main__':
     args.outputHeight = 512
     args.restore = 0
 
-    # fpLog.info('keyname=%s task=%s started' % (args.keyname, args.task))
+    fpLog.info('keyname=%s task=%s started' % (args.keyname, args.task))
 
     main(args)

@@ -6,6 +6,8 @@ import sys
 
 sys.path.append(cur_folder_path)
 
+from OFA_OCR.ikea_ocr import IKEA_OCR_Detect
+from OFA_OCR.ocr_utils import get_boundaryDirection_yValue_ocrPoints, get_corner_points, get_ocr_ratio
 from WallBuilder import *
 
 from options import parse_args
@@ -17,16 +19,20 @@ from imagetransform import *
 
 
 class Predict(object):
-    def __init__(self, options, model_config_path='',model_base_config_path=''):
+    def __init__(self, options, model_config_path='', model_base_config_path='', ocr_model_path="", yolo_model_path=""):
 
         self.model_config_path = model_config_path
         self.model_base_config_path = model_base_config_path
+        self.ocr_model_path = ocr_model_path
+        self.yolo_model_path = yolo_model_path
 
         self.options = options
 
         self.model_base = None
 
         self.model = None
+
+        self.scale_model = None
 
         self.all_heatmap_data = None
 
@@ -49,11 +55,14 @@ class Predict(object):
             self.model.load_state_dict(torch.load(self.model_config_path))
             self.model = self.model.cuda()
             self.model_base.load_state_dict(torch.load(self.model_base_config_path))
-            self.model_base = self.model.cuda()
+            self.model_base = self.model_base.cuda()
         else:
             self.model.load_state_dict(torch.load(self.model_config_path, map_location='cpu'))
             self.model_base.load_state_dict(torch.load(self.model_base_config_path, map_location='cpu'))
 
+        print("~~~~~load scale model~~~~~")
+        # self.scale_model = IKEA_OCR_Detect(self.ocr_model_path, self.yolo_model_path)
+        print("~~~~~scale model over~~~~~")
         self.debug_util_obj = DebugInfo(self.options)
 
     def pre_process_image(self, img_file_path, type):
@@ -78,7 +87,7 @@ class Predict(object):
             image = (image.astype(np.float32) / 255 - 0.5)
             if self.options.debugFlag == 1:
                 self.debug_util_obj.save_floorplan_imag_with_name(image * 255, res_folder_path=res_folder_path,
-                                                              name="PreProcessFullImage_512*512")
+                                                                  name="PreProcessFullImage_512*512")
             image = image.transpose((2, 0, 1))
             image_tensor = torch.Tensor(image)
             image_tensor = image_tensor.view((1, image_tensor.shape[0], image_tensor.shape[1], image_tensor.shape[2]))
@@ -94,8 +103,9 @@ class Predict(object):
             corner_base_pred = self.model_base(image_tensor)
             print("predict model cost {0}".format(time.time() - start))
             if self.options.debugFlag == 1:
-                self.debug_util_obj.save_corner_heatmaps_img(corner_base_pred[0], self.image_transform,
-                                                             res_folder_path=self.options.res_folder_path,corner_base_pred=corner_pred[0])
+                self.debug_util_obj.save_corner_heatmaps_img(corner_pred[0], self.image_transform,
+                                                             res_folder_path=self.options.res_folder_path,
+                                                             corner_base_pred=corner_pred[0])
 
             start = time.time()
             # 3. get the prediction data.
@@ -107,7 +117,7 @@ class Predict(object):
 
             all_heatmap_data = []
             for i in range(corner_base_heatmaps.shape[2]):
-                if i<4:
+                if i < 4:
                     cur_heatmap = corner_heatmaps[:, :, i]
                 else:
                     cur_heatmap = corner_base_heatmaps[:, :, i]
@@ -135,25 +145,88 @@ class Predict(object):
                                                     measuring_scale_ratio=measuring_scale)
 
             print("post process Builder function cost {0}".format(time.time() - start))
-            return json.dumps(res)
+            return res
         except:
             raise
 
+    def _dump_room_info_header(self, ratio, points, value):
+        room_json_str = {
+            # 中间格式版本号，当前版本号1.0
+            "version": "1.0",
+            "meta": {
+                "unit": {
+                    # 长度单位 m，cm，mm, ft 默认 m
+                    "length": "m",
+                    "ratio": ratio,
+                    "points": points,
+                    "value": value
+                }
+            },
+            # 户型信息
+            "floorPlanInfo": {
+                "walls": [],
+                "doors": [],
+                "windows": []
+            }
+        }
+
+        return room_json_str
+
+    def ratio_predict(self, image):
+        width, height = image.size
+        json_res = self._dump_room_info_header(-1, [], 0)
+        start = time.time()
+        try:
+            res = self.scale_model.ikea_ocr(image)
+            cropped_img, boundary_idx, y_value, ocr_point_list = get_boundaryDirection_yValue_ocrPoints(image,
+                                                                                                        res)
+            yolo_bboxs = self.scale_model.get_yolo_detect_bbox(cropped_img)
+            corner_point_map = get_corner_points(cropped_img, yolo_bboxs)
+            print("yolo_bboxs:",yolo_bboxs)
+            up_ratios = get_ocr_ratio(boundary_idx, ocr_point_list, corner_point_map, y_value)
+            print("up_ratios:", up_ratios)
+            print("post process ratio predict function cost {0}".format(time.time() - start))
+            if len(up_ratios) > 0:
+                json_res = self._dump_room_info_header(up_ratios[5],
+                                                       [up_ratios[1]-int(width/2), int(height/2)-up_ratios[3], up_ratios[2]-int(width/2), int(height/2)-up_ratios[3]],
+                                                       up_ratios[4])
+            return 1, json_res
+        except:
+            print("post process ratio predict function cost {0}".format(time.time() - start))
+            return 0, json_res
+
+# class NpEncoder(json.JSONEncoder):
+#     def default(self, obj):
+#         if isinstance(obj, np.integer):
+#             return int(obj)
+#         if isinstance(obj, np.floating):
+#             return float(obj)
+#         if isinstance(obj, np.ndarray):
+#             return obj.tolist()
+#         return super(NpEncoder, self).default(obj)
 
 if __name__ == "__main__":
+    ocr_model_path = 'checkpoint/ocr_general_clean.pt'
+    yolo_model_path = 'checkpoint/floorplan_best.pt'
+    folder_path = os.path.dirname(os.path.abspath(__file__))
+    imagePath = "0a0eccef-2277-4da0-9fe1-7277299af870.png"
+    img_file_path = os.path.join(folder_path, "OFA_OCR/check_data/" + imagePath)
     args = parse_args()
     args.outputDir = "check/detectResult"
     args.debugFlag = 1
-    folder_path = os.path.dirname(os.path.abspath(__file__))
-    imgUrl = "https://henry-search.oss-cn-hangzhou.aliyuncs.com/im2fp/floorplan.png"
-    imagePath1 = "0a0eccef-2277-4da0-9fe1-7277299af870.png"  # 单斜墙
-    imagePath2 = "2caf3f3e-6225-4ee2-a74f-b98d7881e09c.jpg"  # 多斜墙
-    imagePath3 = "0ad81247-8ac5-4287-ba1e-ea500e113298.jpg"  # 多斜墙
-    imagePath4 ="2b2f621c-f6b0-48c7-b785-b425097df544.png"
-    imagePath5 = "00c7c124-dd49-4ee6-83e7-9795bbc7d41e.png"
-    img_file_path = os.path.join(folder_path, "check/detectData/" + imagePath1)
     model_config_path = 'checkpoint/checkpoint_940.pth'
     model_base_config_path = 'checkpoint/checkpoint.pth'
-    predictor = Predict(args, model_config_path,model_base_config_path)
+    predictor = Predict(args, model_config_path, model_base_config_path, ocr_model_path, yolo_model_path)
+
+    # image = Image.open(requests.get(
+    #     "https://henry-search.oss-cn-hangzhou.aliyuncs.com/im2fp/deploy/test_a/0ad81247-8ac5-4287-ba1e-ea500e113298%20(1).jpg",
+    #     stream=True).raw)
+
+    # flag,ratio_res = predictor.ratio_predict(image)
+    # print("up_ratios:", ratio_res)
+
     res = predictor.predict(img_file_path, type="111")  # type=url是从ossUrl读数据
-    print(res)
+    print("floorplan:", res)
+    # if flag==1:
+    #     res["meta"] = ratio_res["meta"]
+    print("floorplan:", json.dumps(res))

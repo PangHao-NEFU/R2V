@@ -8,7 +8,7 @@ from options import parse_args
 
 from model import Model
 
-from deploy.floorplan_dataset import FloorplanDataset
+from datasets.floorplan_dataset import FloorplanDataset
 from IP import reconstructFloorplan
 
 def main(options):

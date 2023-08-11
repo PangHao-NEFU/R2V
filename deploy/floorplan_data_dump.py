@@ -2,6 +2,8 @@
 
 import math
 
+import numpy as np
+
 
 class FloorplanDataDump(object):
     def __init__(self, wall_builder_obj):
@@ -218,7 +220,7 @@ class FloorplanDataDump(object):
 
         return door_list, single_swing_door_list
 
-    def _dump_room_info_header(self,ratio):
+    def _dump_room_info_header(self):
         room_json_str = {
             # 中间格式版本号，当前版本号1.0
             "version": "1.0",
@@ -226,7 +228,9 @@ class FloorplanDataDump(object):
                 "unit": {
                     # 长度单位 m，cm，mm, ft 默认 m
                     "length": "m",
-                    "ratio": ratio
+                    "ratio": -1,
+                    "points": [],
+                    "value": 0
                 }
             },
             # 户型信息
@@ -240,18 +244,15 @@ class FloorplanDataDump(object):
         return room_json_str
 
     def _dump_wall_info(self, room_json_str, wall_list, wall_id_positions_map, ratio):
+
         wallIds = list(wall_id_positions_map.keys())
         # add wall info
         for wall_index in range(len(wall_list)):
-            thickness = 0.24
-            is_bearing = True
-            if wall_list[wall_index][4] < self.max_wall_thickness * ratio:
-                thickness = 0.12
-                is_bearing = False
-            elif wall_list[wall_index][4] > 0.5:
-                thickness = 0.24
-            else:
-                thickness = wall_list[wall_index][4]
+            # print("wall_list[wall_index][4]", wall_list[wall_index][4],self.max_wall_thickness)
+            is_bearing = False
+            if np.abs(wall_list[wall_index][4] - self.max_wall_thickness)<5:
+                is_bearing = True
+            thickness = wall_list[wall_index][4]
             wall_info = {
                 # 起点坐标[x, y, z]
                 "from": {
@@ -266,7 +267,7 @@ class FloorplanDataDump(object):
                     "z": 0,
                 },
                 # 墙厚
-                "thickness": thickness,
+                "thickness": int(thickness),
                 # 墙高（从楼板到墙顶的距离z）
                 "height": 2.60,
                 "type": "generic",
@@ -386,9 +387,10 @@ class FloorplanDataDump(object):
         door_list, single_swing_door_list = self._convert_doors(self.wall_builder_obj.all_door_lines)
 
         # 计算
-        ratio = measuring_scale_ratio
-        if ratio < 0:
-            ratio = self._calc_default_measure_scale_ratio(single_swing_door_list, self.max_wall_thickness)
+        # ratio = measuring_scale_ratio
+        # if ratio < 0:
+        #     ratio = self._calc_default_measure_scale_ratio(single_swing_door_list, self.max_wall_thickness)
+        ratio = 1
 
         # update the door list with ratio
         for door_index in range(len(door_list)):
@@ -406,7 +408,7 @@ class FloorplanDataDump(object):
                 wall_list[wall_index][i] = wall_list[wall_index][i] * ratio
 
         # header information.
-        room_json_str = self._dump_room_info_header(ratio)
+        room_json_str = self._dump_room_info_header()
         room_json_str = self._dump_wall_info(room_json_str, wall_list, wall_id_positions_map, ratio)
         room_json_str = self._dump_window_info(room_json_str, window_list)
         room_json_str = self._dump_door_info(room_json_str, door_list)

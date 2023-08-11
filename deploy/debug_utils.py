@@ -4,7 +4,7 @@ import cv2
 import copy
 import torch
 
-from utils import *
+from utils_ikea import *
 from Primitive import *
 
 # from WallBuilderFloorplan import *
@@ -20,7 +20,7 @@ class DebugInfo(object):
         if not os.path.exists(res_folder_path):
             os.makedirs(res_folder_path)
 
-        cv2.imwrite(os.path.join(res_folder_path, "floorplan.png"), image)
+        cv2.imwrite(os.path.join(res_folder_path, "check/detect/floorplan.png"), image)
 
     def save_floorplan_imag_with_name(self, image, res_folder_path,name):
         if not os.path.exists(res_folder_path):
@@ -64,7 +64,7 @@ class DebugInfo(object):
                         cur_heatmap = img_transfor_obj.mapping_2_original_image_size(cur_heatmap)
                     cv2_write_image_light(cur_heatmap, cur_heatmap_file_path)
                     if 13>i:
-                     all_cur_heatmaps.append(cur_heatmap)
+                        all_cur_heatmaps.append(cur_heatmap)
             temp = all_cur_heatmaps[len(all_cur_heatmaps)-1]
             for i in range(len(all_cur_heatmaps)-1):
                 temp+=all_cur_heatmaps[i]
@@ -107,7 +107,7 @@ class WallBuilderDataDump(object):
                               back_ground_img=back_ground_img,
                               rgb_color=[0, 255, 0])
 
-        # back_ground_img = self.wall_builder_obj.floor_plan_img_data.copy()
+        back_ground_img = self.wall_builder_obj.floor_plan_img_data.copy()
         self._draw_door_lines(self.wall_builder_obj.all_door_lines,
                               back_ground_img=back_ground_img)
 
@@ -122,7 +122,7 @@ class WallBuilderDataDump(object):
                                back_ground_img=back_ground_img,
                                rgb_color=[0, 0, 255])
 
-        # back_ground_img = self.wall_builder_obj.floor_plan_img_data.copy()
+        back_ground_img = self.wall_builder_obj.floor_plan_img_data.copy()
         self._draw_wall_points(self.wall_builder_obj.all_door_points, file_name="DoorPoints.png",
                                # line_width=2,
                                back_ground_img=back_ground_img,
@@ -154,10 +154,10 @@ class WallBuilderDataDump(object):
             if len(un_fit_directions) > 0:
                 color = (0, 255, 255)
 
-            x, y = cur_wall_point.x, cur_wall_point.y
+            x, y = int(cur_wall_point.x), int(cur_wall_point.y)
             img_mask[max(y - line_width, 0):min(y + line_width, self.wall_builder_obj.floor_plan_img_height - 1),
             max(x - line_width, 0):min(x + line_width, self.wall_builder_obj.floor_plan_img_width - 1)] = line_color
-            # cv2.putText(img_mask, (str(x)+','+str(y)), (x, y), cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, color)
+            cv2.putText(img_mask, (str(x)+','+str(y)), (x, y), cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, color)
 
         file_path = self._get_file_path(file_name)
         cv2_write_image(img_mask, file_path)
