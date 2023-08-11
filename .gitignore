@@ -1,11 +1,11 @@
 .idea/
 .vscode/
 .history/
-**/*.{iml}
 
 # deploy
 deploy/checkpoint/*
 deploy/check/detectData
+**/*.{bin,mar}
 
 # OCR
 **/.ipynb_checkpoints
@@ -22,4 +22,3 @@ dataprepare/fromSJJ/history
 dataprepare/fromSJJ/data
 **/checkpoints
 **/checkpoint
-
