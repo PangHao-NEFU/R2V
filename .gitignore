@@ -1,27 +1,25 @@
+.idea/
+.vscode/
+.history/
+**/*.{iml}
+
 # deploy
 deploy/checkpoint/*
 deploy/check/detectData
 
 # OCR
-OCR/**/.ipynb_checkpoints
+**/.ipynb_checkpoints
 OCR/check_data
-OCR/checkpoints
 **/__pycache__
 
 # data
-dataprepare/fromSJJ/*
 dataPreprocess/history/*
 dataPreprocess/sjj
 dataPreprocess/sjj_v2
-models/checkpoint/*
+models/checkpoint
 models/test
-dataprepare/fromSJJ/history/
-dataprepare/fromSJJ/data/
-.idea
-.vscode
-.history
-/dataprepare/fromSJJ/data/
-/models/utils/sjj_v2/
-/models/checkpoint/
-/deploy/checkpoint/
-/dataPreprocess/history/
+dataprepare/fromSJJ/history
+dataprepare/fromSJJ/data
+**/checkpoints
+**/checkpoint
+
