@@ -1,12 +1,17 @@
 # coding=utf-8
 import os
 import json
+from math import sqrt
 import numpy as np
 import cv2
 from PIL import Image
 import shutil
 import random
 from tqdm import tqdm
+import pytesseract
+
+from dataPreprocess.imgutils import cv2_imread
+from dataPreprocess.imgutils import cv2_imwrite
 
 global_index = -1000
 global_index_p = 0
@@ -56,13 +61,13 @@ class PreprocessDataSJJ(object):
         self.floor_plan_img_height = 512
         self.floor_plan_img_width = 512
 
-        self.opening_v2_enum_list = ["HSCore.Model.Door",
-                                     "HSCore.Model.Window",
-                                     "HSCore.Model.Hole",
-                                     "HSCore.Model.CornerWindow",
-                                     "HSCore.Model.POrdinaryWindow",
-                                     "HSCore.Model.CornerFlatWindow",
-                                     "HSCore.Model.BayWindow"]
+        self.opening_v2_enum_list = ["Door",
+                                     "Window",
+                                     "Hole",
+                                     "CornerWindow",
+                                     "POrdinaryWindow",
+                                     "CornerFlatWindow",
+                                     "BayWindow"]
 
         super(PreprocessDataSJJ, self).__init__()
 
@@ -76,7 +81,7 @@ class PreprocessDataSJJ(object):
                 self.json_file_path = os.path.join(self.sub_folder_path, file_name)
                 break
 
-        target_file_path = os.path.join(self.res_sub_folder_path, "{0}.jpg".format(self.item_file_name))
+        target_file_path = os.path.join(self.res_sub_folder_path, "{0}.png".format(self.item_file_name))
         if os.path.exists(self.img_file_path):
             # copy the img to self.res_sub_folder_path.
             shutil.copyfile(self.img_file_path, target_file_path)
@@ -104,8 +109,15 @@ class PreprocessDataSJJ(object):
     # 门弧形在第几象限.  0：第四象限， 1：第一象限 2: 第二象限, 3:第三象限
     # 水平门和竖直门各有4个。
     def _get_door_direction(self, door_item):
-        swing = door_item['swing']
-        z_rotation = door_item['ZRotation']
+        if 'swing' not in door_item.keys():
+            swing = 1
+        else:
+            swing = door_item['swing']
+        if 'ZRotation' not in door_item.keys():
+            z_rotation = 0
+        else:
+            z_rotation = door_item['ZRotation']
+
         z_rotation_changes = int(z_rotation / 90)
 
         # 旋转时逆时针为负，顺时针为正
@@ -141,7 +153,7 @@ class PreprocessDataSJJ(object):
             if prod['seekId'] == seek_id:
                 return prod['contentType']
 
-        return ""
+        return "single swing"
 
     # point_1_dict 是直接从JSON解释的数据。
     def _calc_points_distance(self, point_1_dict, point_2_dict):
@@ -156,9 +168,9 @@ class PreprocessDataSJJ(object):
 
     def _parse_wall_line(self, wall_line):
         wall_verties = []
-        for cur_children_id in wall_line["children"]:
+        for cur_children_id in wall_line["c"]:
             cur_children_entity = self.id_2_items_dict[cur_children_id]
-            if cur_children_entity["Class"] != "HSCore.Model.Vertex":
+            if cur_children_entity["l"] != "Vertex":
                 continue
 
             wall_verties.append(cur_children_entity)
@@ -204,14 +216,14 @@ class PreprocessDataSJJ(object):
 
     def _parse_layer_wall_lines(self, active_layer):
         try:
-            layer_children = active_layer["children"]
+            layer_children = active_layer["c"]
             for cur_children_id in layer_children:
                 if cur_children_id not in self.id_2_items_dict.keys():
                     continue
 
                 cur_children_entity = self.id_2_items_dict[cur_children_id]
 
-                if cur_children_entity["Class"] != "HSCore.Model.Wall":
+                if cur_children_entity["l"] != "Wall":
                     continue
                 # 解析墙
                 self._parse_wall_line(cur_children_entity)
@@ -231,11 +243,11 @@ class PreprocessDataSJJ(object):
             min_y = 1000.0
             max_y = -1000.0
             # get the range box of loop.
-            for child_id in loop["children"]:
+            for child_id in loop["c"]:
                 cur_co_edge = self.id_2_items_dict[child_id]
                 edge_id = cur_co_edge["edge"]
                 edge = self.id_2_items_dict[edge_id]
-                for vertex_id in edge["children"]:
+                for vertex_id in edge["c"]:
                     vertex = self.id_2_items_dict[vertex_id]
 
                     x = vertex["x"]
@@ -259,6 +271,7 @@ class PreprocessDataSJJ(object):
             img_pil = Image.open(self.img_file_path)
             w, h = img_pil.size
 
+            # 缩放倍数
             width_scale = w / 512
             height_scale = h / 512
             if width_scale < height_scale:
@@ -286,10 +299,13 @@ class PreprocessDataSJJ(object):
 
     def format_point_info(self, jason_data):
         try:
-            img_data = cv2.imread(self.cad_image_resized_file_path)
+            img_data = cv2_imread(self.cad_image_resized_file_path)
+            if os.path.basename(self.cad_image_resized_file_path).split('.')[-1] == 'png':
+                img_data = cv2.cvtColor(img_data, cv2.COLOR_RGBA2BGR)
+            # img_data必须为三通道
             img_data = cv2.cvtColor(img_data, cv2.COLOR_BGR2GRAY)
 
-            floor_plan_img_height = img_data.shape[0]
+            floor_plan_img_height = img_data.shape[0]  # 这里按理说是512,512
             floor_plan_img_width = img_data.shape[1]
 
             x_offset, y_offset, self.factor = self._calc_factor(jason_data, floor_plan_img_height,
@@ -299,8 +315,8 @@ class PreprocessDataSJJ(object):
             half_width = 0.5 * floor_plan_img_width
 
             for cur_wall_point in self.all_wall_points.values():
-                x = int(cur_wall_point.x * self.factor + half_width)
-                y = -int(cur_wall_point.y * self.factor - half_height)
+                x = int(cur_wall_point.x * self.factor + half_width + x_offset)
+                y = -int(cur_wall_point.y * self.factor - half_height - y_offset)
 
                 x = max(x, 0)
                 x = min(x, floor_plan_img_width)
@@ -311,8 +327,8 @@ class PreprocessDataSJJ(object):
                 cur_wall_point.y = y
 
             for cur_wall_point in self.all_opening_points:
-                x = int(cur_wall_point.x * self.factor + half_width)
-                y = -int(cur_wall_point.y * self.factor - half_height)
+                x = int(cur_wall_point.x * self.factor + half_width + x_offset)
+                y = -int(cur_wall_point.y * self.factor - half_height - y_offset)
 
                 x = max(x, 0)
                 x = min(x, floor_plan_img_width)
@@ -323,8 +339,8 @@ class PreprocessDataSJJ(object):
                 cur_wall_point.y = y
 
             for cur_wall_point in self.all_door_points:
-                x = int(cur_wall_point.x * self.factor + half_width)
-                y = -int(cur_wall_point.y * self.factor - half_height)
+                x = int(cur_wall_point.x * self.factor + half_width + x_offset+0.05)
+                y = -int(cur_wall_point.y * self.factor - half_height - y_offset)
 
                 x = max(x, 0)
                 x = min(x, floor_plan_img_width)
@@ -348,6 +364,11 @@ class PreprocessDataSJJ(object):
 
         except Exception as err:
             print(err)
+            print("错误文件:", os.path.basename(self.img_file_path))
+            if not os.path.exists('./history'):
+                os.makedirs("./history")
+            with open("./history/errorfile.txt", 'a') as f:
+                f.write(os.path.splitext(os.path.basename(self.img_file_path))[0] + '\n')
 
     def _parse_corner_flat_window2(self, window_item):
         window_part_info = window_item["partsInfo"]
@@ -454,8 +475,8 @@ class PreprocessDataSJJ(object):
         x_length = np.abs(window_item["XLength"])
         y_length = np.abs(window_item["YLength"])
         x_scale = np.abs(window_item["XScale"])
-        y_scale = np.abs(window_item["YScale"])
-        z_rotation_value = window_item["ZRotation"]
+        y_scale = np.abs(window_item.get("YScale") or 1)  # 这里会报错,没有YScale
+        z_rotation_value = window_item.get("ZRotation") or 360  # 报错,没有ZRotation
         length = x_length * x_scale if x_length > y_length else y_length * y_scale
         z_rotation_value = 3.1415926535 * z_rotation_value / 180.0
         start_point = Point("-1", x - 0.5 * length * np.cos(z_rotation_value),
@@ -463,13 +484,18 @@ class PreprocessDataSJJ(object):
         end_point = Point("-1", x + 0.5 * length * np.cos(z_rotation_value),
                           y - 0.5 * length * np.sin(z_rotation_value))
 
-        host_wall_direction = host_wall.calc_wall_direction()
+        host_wall_direction = self.calc_line_dim(host_wall.start_point, host_wall.end_point)
+
         if host_wall_direction == 0:  # 水平墙
             start_point.y = host_wall.start_point.y
             end_point.y = host_wall.start_point.y
-        else:  # 竖直墙
+        elif host_wall_direction==1:  # 竖直墙
             start_point.x = host_wall.start_point.x
             end_point.x = host_wall.start_point.x
+        elif host_wall_direction==-1: # 斜墙
+            #todo:斜墙处理
+            pass
+
 
         start_point.window_type = 0
         end_point.window_type = 0
@@ -498,7 +524,7 @@ class PreprocessDataSJJ(object):
         host_wall = self.all_wall_segments[host_wall_id]
         if "B" in part_json.keys():
             self._parse_side_corner_window(part_json["B"], offset_x=x, offset_y=y, host_wall=host_wall,
-                                           window_type="HSCore.Model.POrdinaryWindow",
+                                           window_type="POrdinaryWindow",
                                            add_wall_flag=False)
 
     # 添加3堵墙， 并且将飘窗转换成3个普通窗户。
@@ -520,23 +546,23 @@ class PreprocessDataSJJ(object):
         host_wall = self.all_wall_segments[host_wall_id]
         if "A" in part_json.keys():
             self._parse_side_corner_window(part_json["A"], offset_x=x, offset_y=y, host_wall=host_wall,
-                                           window_type="HSCore.Model.BayWindow",
+                                           window_type="BayWindow",
                                            part_type="A")
         if "B" in part_json.keys():
             self._parse_side_corner_window(part_json["B"], offset_x=x, offset_y=y,
                                            host_wall=host_wall,
-                                           window_type="HSCore.Model.BayWindow",
+                                           window_type="BayWindow",
                                            part_type="B"
                                            )
         if "C" in part_json.keys():
             self._parse_side_corner_window(part_json["C"], offset_x=x, offset_y=y, host_wall=host_wall,
-                                           window_type="HSCore.Model.BayWindow",
+                                           window_type="BayWindow",
                                            part_type="C"
                                            )
 
     def _parse_side_corner_window(self, side_part_info, offset_x=0.0, offset_y=0.0,
                                   host_wall=None,
-                                  window_type="HSCore.Model.Window",
+                                  window_type="Window",
                                   part_type="A",
                                   add_wall_flag=True):
 
@@ -546,7 +572,7 @@ class PreprocessDataSJJ(object):
         end_point_x = 0.5 * (side_part_info["outerTo"]["x"] + side_part_info["innerTo"]["x"]) + offset_x
         end_point_y = 0.5 * (side_part_info["outerTo"]["y"] + side_part_info["innerTo"]["y"]) + offset_y
 
-        if window_type == "HSCore.Model.BayWindow":
+        if window_type == "BayWindow":
             if host_wall is None:
                 return
             if part_type == "A" or part_type == "C":
@@ -571,7 +597,7 @@ class PreprocessDataSJJ(object):
                         max_x = max(start_point_x, end_point_x)
                         start_point_x = wall_center_pos
                         end_point_x = max_x
-        elif window_type == "HSCore.Model.POrdinaryWindow":
+        elif window_type == "POrdinaryWindow":
             if host_wall is None:
                 return
             direction = host_wall.calc_wall_direction()
@@ -620,16 +646,16 @@ class PreprocessDataSJJ(object):
 
         # Side A
         if "A" in part_json.keys():
-            self._parse_side_corner_window(part_json["A"], window_item["class"])
+            self._parse_side_corner_window(part_json["A"], window_item["l"])
         if "B" in part_json.keys():
-            self._parse_side_corner_window(part_json["B"], window_item["class"])
+            self._parse_side_corner_window(part_json["B"], window_item["l"])
         if "C" in part_json.keys():
-            self._parse_side_corner_window(part_json["C"], window_item["class"])
+            self._parse_side_corner_window(part_json["C"], window_item["l"])
         if "D" in part_json.keys():
-            self._parse_side_corner_window(part_json["D"], window_item["class"])
+            self._parse_side_corner_window(part_json["D"], window_item["l"])
 
     def _parse_window_item(self, window_item):
-        class_type_name = window_item["Class"]
+        class_type_name = window_item["l"]
 
         # 是否存在Host.
         if "host" not in window_item.keys():
@@ -640,24 +666,24 @@ class PreprocessDataSJJ(object):
             return
 
         # 对于转角窗，可以是当成两个普通窗户来处理。
-        if class_type_name == "HSCore.Model.CornerFlatWindow":  # 转角窗
+        if class_type_name == "CornerFlatWindow":  # 转角窗
             # 转角Window，不需要处理墙，只需要把其分成两各普通窗户就可。
             self._parse_corner_flat_window2(window_item)
-        elif class_type_name == "HSCore.Model.CornerWindow":  # 转角飘窗
+        elif class_type_name == "CornerWindow":  # 转角飘窗
             self._parse_corner_window(window_item)
-        elif class_type_name == "HSCore.Model.BayWindow":  # 飘窗
+        elif class_type_name == "BayWindow":  # 飘窗
             self._parse_bay_window(window_item)
-        elif class_type_name == "HSCore.Model.POrdinaryWindow":
+        elif class_type_name == "POrdinaryWindow":
             self._parse_ordinary_window(window_item)
         else:  # 一般的窗户。
             self._parse_normal_window_item(window_item)
 
     # 处理门窗
     def _parse_opening_data(self, products_data):
-        # opening ID.
+        # opening ID. json里面就是l:Window,id: 就是这个opening_id
         for opening_id in self.id_2_opening_items_dict.keys():
             opening_item = self.id_2_opening_items_dict[opening_id]
-            class_type_name = opening_item["Class"]
+            class_type_name = opening_item["l"]
 
             x = opening_item["x"]
             y = opening_item["y"]
@@ -670,24 +696,26 @@ class PreprocessDataSJJ(object):
             host_wall = None
             if host_wall_id in self.all_wall_segments.keys():
                 host_wall = self.all_wall_segments[host_wall_id]
-
-            z_rotation_value = opening_item["ZRotation"] + 360
+            if 'ZRotation' not in opening_item.keys():
+                z_rotation_value = 360
+            else:
+                z_rotation_value = opening_item["ZRotation"] + 360
             relative_rotation_value = z_rotation_value / 90.0
 
             # 将CornerFlatWindow和CornerWindow处理成两个窗户。
-            if class_type_name == "HSCore.Model.Window" or \
-                    class_type_name == "HSCore.Model.CornerFlatWindow" or \
-                    class_type_name == "HSCore.Model.CornerWindow" or \
-                    class_type_name == "HSCore.Model.BayWindow" or \
-                    class_type_name == "HSCore.Model.POrdinaryWindow":
+            if class_type_name == "Window" or \
+                    class_type_name == "CornerFlatWindow" or \
+                    class_type_name == "CornerWindow" or \
+                    class_type_name == "BayWindow" or \
+                    class_type_name == "POrdinaryWindow":
                 self._parse_window_item(opening_item)
             else:
                 x_length = np.abs(opening_item["XLength"])
                 y_length = np.abs(opening_item["YLength"])
                 x_scale = np.abs(opening_item["XScale"])
-                y_scale = np.abs(opening_item["YScale"])
+                y_scale = 1
 
-                z_rotation_value = opening_item["ZRotation"]
+                # z_rotation_value = opening_item["ZRotation"]
                 length = x_length * x_scale if x_length > y_length else y_length * y_scale
                 z_rotation_value = 3.1415926535 * z_rotation_value / 180.0
                 start_point = Point("-1", x - 0.5 * length * np.cos(z_rotation_value),
@@ -696,7 +724,7 @@ class PreprocessDataSJJ(object):
                                   y - 0.5 * length * np.sin(z_rotation_value))
 
                 # 门
-                if class_type_name == "HSCore.Model.Door":
+                if class_type_name == "Door":
 
                     door_line = WallLine(opening_id, start_point, end_point)
                     door_type = self._get_door_type2(opening_item["seekId"], products_data)
@@ -724,16 +752,16 @@ class PreprocessDataSJJ(object):
         all_data_items = json_data["data"]
 
         for cur_item in all_data_items:
-            if cur_item["Class"] == "HSCore.Model.Scene":
+            if cur_item["l"] == "Scene":
                 self.scene_item = cur_item
                 continue
 
-            if cur_item["Class"] == "HSCore.Model.Underlay":
+            if cur_item["l"] == "Underlay":
                 self.underlay_item = cur_item
                 continue
 
             # DOOR and Window.
-            if cur_item["Class"] in self.opening_v2_enum_list:
+            if cur_item["l"] in self.opening_v2_enum_list:
                 self.id_2_opening_items_dict[cur_item["id"]] = cur_item
             else:
                 # Wall、Vertex、Edge
@@ -776,14 +804,18 @@ class PreprocessDataSJJ(object):
         return np.sqrt((self.start_point.x - self.end_point.x) * (self.start_point.x - self.end_point.x) +
                        (self.start_point.y - self.end_point.y) * (self.start_point.y - self.end_point.y))
 
-    def calc_line_dim(self, point_1, point_2, threshold=5, space_flag=False):
-        # space_flag.
+
+    def calc_line_dim(self, point_1, point_2, threshold=1, space_flag=False):
+        # space_flag. 斜墙:-1
         if not space_flag:
             if np.abs(point_2.x - point_1.x) > threshold and np.abs(point_2.y - point_1.y) > threshold:
                 return -1
-
+            elif (np.abs(point_2.y-point_1.y) /(np.abs(point_2.x-point_1.x)+0.00001)>np.tan(15*3.1415926/360)) and (np.abs(point_2.y-point_1.y) / (np.abs(point_2.x-point_1.x)+0.00001)<np.tan(75*3.1415926/360)):
+                return -1
+        # 水平墙:0
         if np.abs(point_2.x - point_1.x) > np.abs(point_2.y - point_1.y):
             return 0
+        # 竖直墙:1
         else:
             return 1
 
@@ -1273,38 +1305,20 @@ class PreprocessDataSJJ(object):
                     image[max(fixedValue - line_width, 0):min(fixedValue + line_width, self.floor_plan_img_height),
                     minValue:maxValue + 1, :] = line_color
 
-                    # cv2.putText(image, str((wall_line.start_point.x, wall_line.start_point.y)),
-                    #             (wall_line.start_point.x, wall_line.start_point.y - 10),
-                    #             cv2.FONT_HERSHEY_COMPLEX_SMALL, 0.6,
-                    #             (0, 0, 0))
-                    # cv2.putText(image, str((wall_line.end_point.x, wall_line.end_point.y)),
-                    #             (wall_line.end_point.x, wall_line.end_point.y),
-                    #             cv2.FONT_HERSHEY_COMPLEX_SMALL, 0.6,
-                    #             (0, 0, 0))
+                    cv2.putText(image, str(wall_line.p_id), (int(0.5 * (maxValue + minValue)), fixedValue),
+                                cv2.FONT_HERSHEY_COMPLEX_SMALL, 1,
+                                (0, 255, 0))
                 elif line_dim == 1:
                     image[minValue:maxValue + 1,
                     max(fixedValue - line_width, 0):min(fixedValue + line_width, self.floor_plan_img_width),
                     :] = line_color
                     # #
-                    # cv2.putText(image, str((wall_line.start_point.x, wall_line.start_point.y + 20)),
-                    #             (wall_line.start_point.x, wall_line.start_point.y),
-                    #             cv2.FONT_HERSHEY_COMPLEX_SMALL, 0.6,
-                    #             (0, 0, 0))
-                    #
-                    # cv2.putText(image, str((wall_line.end_point.x, wall_line.end_point.y + 20)),
-                    #             (wall_line.end_point.x, wall_line.end_point.y),
-                    #             cv2.FONT_HERSHEY_COMPLEX_SMALL, 0.6,
-                    #             (0, 0, 0))
+                    cv2.putText(image, str(wall_line.p_id), (fixedValue, int(0.5 * (maxValue + minValue))),
+                                cv2.FONT_HERSHEY_COMPLEX_SMALL, 1,
+                                (0, 255, 0))
+                # 画斜墙
                 elif line_dim == -1:
-                    cv2.line(image, (point_1.x, point_1.y), (point_2.x, point_2.y), (255, 0, 0), 3)
-                    # cv2.putText(image, str((wall_line.start_point.x, wall_line.start_point.y)),
-                    #             (wall_line.start_point.x, wall_line.start_point.y),
-                    #             cv2.FONT_HERSHEY_COMPLEX_SMALL, 0.6,
-                    #             (0, 0, 0))
-                    # cv2.putText(image, str((wall_line.end_point.x, wall_line.end_point.y)),
-                    #             (wall_line.end_point.x, wall_line.end_point.y),
-                    #             cv2.FONT_HERSHEY_COMPLEX_SMALL, 0.6,
-                    #             (0, 0, 0))
+                    cv2.line(image, (point_1.x, point_1.y), (point_2.x, point_2.y), (255, 0, 0), 5)
 
             if save_flag:
                 wall_lines_res_file_path = os.path.join(self.res_sub_folder_path, "{0}.jpg".format(file_name))
@@ -1322,14 +1336,15 @@ class PreprocessDataSJJ(object):
 
             # Load Image Data.
             img_data = cv2.imread(self.img_file_path)
+            img_data = cv2.cvtColor(img_data, cv2.COLOR_RGBA2BGR)
             self.floor_plan_img_height = img_data.shape[0]
             self.floor_plan_img_width = img_data.shape[1]
 
-            # Load Json Data.读取json文件
+            # Load Json Data.
             with open(self.json_file_path, 'r', encoding=r'UTF-8') as load_f:
                 floorplan_json_data = json.load(load_f)
 
-            # Parse the Json Data.解析json数据
+            # Parse the Json Data.
             self._parse_items_data_dict(floorplan_json_data)
 
             # 场景数据。
@@ -1349,7 +1364,7 @@ class PreprocessDataSJJ(object):
             # 图片大小改为为512*512
             self.resize_image()
 
-            # mapping points from 3D space to pixel space.
+            # mapping points from 3D space to pixel space.计算比例尺等
             self.format_point_info(floorplan_json_data)
 
             # 把相同点进行合并。
@@ -1368,48 +1383,94 @@ class PreprocessDataSJJ(object):
 
             all_wall_points = list(self.all_wall_points.values())
             img_data = cv2.imread(self.cad_image_resized_file_path)
-            tmp_resize_data = np.ones(
-                (img_data.shape[0], img_data.shape[1], 3),
-                np.uint8) * 255
             back_groud_img_data = img_data.copy()
-            back_groud_img_data = (back_groud_img_data.astype(np.float32) - 150)
-            # back_groud_img_data = tmp_resize_data.copy()
-            self.draw_lines(self.all_wall_segments, line_width=2, background_img_data=back_groud_img_data,
-                            file_name="WallLines")
-            # back_groud_img_data = tmp_resize_data.copy()
-            self.draw_lines(self.all_opening_lines, line_width=2, background_img_data=back_groud_img_data,
-                            file_name="OpeningLines")
-            # back_groud_img_data = tmp_resize_data.copy()
-            self.draw_lines(self.all_door_lines, line_width=2, background_img_data=back_groud_img_data,
-                            file_name="DoorLines")
-            # back_groud_img_data = tmp_resize_data.copy()
-            self.draw_lines(self.all_holes, line_width=2, background_img_data=back_groud_img_data, file_name="Holes")
+            # 画墙点
+            self.draw_points(all_wall_points, background_img_data=back_groud_img_data, file_name="WallPoint")
+            back_groud_img_data = img_data.copy()
+            # 画门点
+            self.draw_points(self.all_door_points, background_img_data=back_groud_img_data, file_name="DoorPoint")
+            back_groud_img_data = img_data.copy()
 
-            self.draw_points(all_wall_points, background_img_data=back_groud_img_data, file_name="WallPoint",
-                             rgb_color=[0, 255, 0])
-            # back_groud_img_data = tmp_resize_data.copy()
-            self.draw_points(self.all_door_points, background_img_data=back_groud_img_data, file_name="DoorPoint",
-                             rgb_color=[255, 0, 0])
-            # back_groud_img_data = tmp_resize_data.copy()
-            self.draw_points(self.all_opening_points, background_img_data=back_groud_img_data, file_name="OpeningPoint",
-                             rgb_color=[0, 0, 255])
-            # back_groud_img_data = tmp_resize_data.copy()
+            # 画窗
+            self.draw_points(self.all_opening_points, background_img_data=back_groud_img_data, file_name="OpeningPoint")
+            back_groud_img_data = img_data.copy()
             self.draw_points(self.all_hole_points, line_width=2, background_img_data=back_groud_img_data,
                              file_name="HolePoint")
 
+            back_groud_img_data = img_data.copy()
+            self.draw_lines(self.all_wall_segments, line_width=2, background_img_data=back_groud_img_data,
+                            file_name="WallLines")
+            back_groud_img_data = img_data.copy()
+            self.draw_lines(self.all_opening_lines, line_width=2, background_img_data=back_groud_img_data,
+                            file_name="OpeningLines")
+            back_groud_img_data = img_data.copy()
+            self.draw_lines(self.all_door_lines, line_width=2, background_img_data=back_groud_img_data,
+                            file_name="DoorLines")
+            back_groud_img_data = img_data.copy()
+            self.draw_lines(self.all_holes, line_width=2, background_img_data=back_groud_img_data, file_name="Holes")
 
             self._save_training_data()
         except Exception as err:
             print(err)
 
+    # 计算比例尺,但是v2版本的数据没有height了
     def _calc_factor(self, json_data, floor_plan_img_height, floor_plan_img_width):
         if self.underlay_item is None:
             return None
-        width = self.underlay_item["width"]
-        height = self.underlay_item["height"]
 
-        ratio = height / (136.7 * floor_plan_img_height)
-        return abs(width), abs(height), abs(1.0 / ratio)
+        # 配置tesseract,下载并且安装tesseract,配置可执行文件路径
+        pytesseract.pytesseract.tesseract_cmd = r'D:\Program\Tesseract-OCR\tesseract.exe'
+        # 识别数字
+        originalImg = cv2.imread(self.img_file_path)
+        cvtOriginalImg = cv2.cvtColor(originalImg, cv2.COLOR_RGBA2BGR)
+        height, width = cvtOriginalImg.shape[:2]
+        # 裁剪图片上方1/5的区域以便更好使用ocr识别比例数字
+        crop_height = int(height / 5)
+        cropped_Img = cvtOriginalImg[:crop_height, :]
+        # cv2.imshow("crop", cropped_Img)
+        # cv2.waitKey(0)
+        digits = pytesseract.image_to_string(cropped_Img, config=f'--psm 6 digits', lang='eng')
+        # 卡农边缘检测,使用霍夫变换检测直线,窗口大小3
+        grayImg = cv2.cvtColor(cvtOriginalImg, cv2.COLOR_BGR2GRAY)
+        edges = cv2.Canny(grayImg, 300, 500, apertureSize=3)
+        lines = cv2.HoughLinesP(edges, 1, np.pi / 180, threshold=100, minLineLength=100, maxLineGap=10)
+        # print(lines,lines.shape)
+        digits = digits.split('\n')  # digits中会有很多奇奇怪怪的东西,过滤一下
+        filteredDigits = []
+        for d in digits:
+            try:
+                int(d)
+            except ValueError:
+                continue
+            filteredDigits.append(int(d))
+        maxDigits = max(filteredDigits)
+        # print(digits)
+        # 过滤直线
+        horizontal = []
+        for line in lines:
+            x1, y1, x2, y2 = line[0]
+            slope = (y2 - y1) / (x2 - x1 + 1e-5)  # 避免除以零
+            if abs(slope) < 0.1:  # 过滤出斜率接近于水平的直线
+                dis = sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
+                # 图片边缘也会被识别为直线!,阈值控制在150像素左右
+                if dis < min(height, width) - 150:
+                    horizontal.append(dis)
+                    # cv2.line(iimg, (x1, y1), (x2, y2), (0, 255, 0), 2)  # 绘制水平线
+
+        # print(sorted(horizontal,reverse=True))
+        maxLineLength = sorted(horizontal, reverse=True)[0]
+        ratio = ((maxLineLength * 1000) / float(maxDigits)) * float(512 / 3000)
+        print("ratio:", ratio, '\n')
+        # print('img:',os.path.basename(self.img_file_path))
+        # 像素/米,y的偏移量,每张图并不是严格按中心出图
+        if ratio is None:
+            print(f"ratio计算出错!digits:{digits},maxLineLength:{maxLineLength}\n")
+            if not os.path.exists('./history'):
+                os.makedirs("./history")
+            with open("./history/errorfile.txt", 'a') as f:
+                f.write(os.path.splitext(os.path.basename(self.img_file_path))[0] + '\n')
+
+        return 0.1, -8.1, ratio
 
     def _save_training_data(self):
         self._save_line_points(self.all_wall_segments, type_name="wall")
@@ -1496,14 +1557,17 @@ class WallLine(Entity):
                 self.start_point = self.end_point
                 self.end_point = tmp
 
-    def calc_line_dim(self, point_1, point_2, threshold=5, space_flag=False):
-        # space_flag.
+    def calc_line_dim(self, point_1, point_2, threshold=1, space_flag=False):
+        # space_flag. 斜墙:-1
         if not space_flag:
             if np.abs(point_2.x - point_1.x) > threshold and np.abs(point_2.y - point_1.y) > threshold:
                 return -1
-
+            elif (np.abs(point_2.y-point_1.y) /(np.abs(point_2.x-point_1.x)+0.00001)>np.tan(15*3.1415926/360)) and (np.abs(point_2.y-point_1.y) / (np.abs(point_2.x-point_1.x)+0.00001)<np.tan(75*3.1415926/360)):
+                return -1
+        # 水平墙:0
         if np.abs(point_2.x - point_1.x) > np.abs(point_2.y - point_1.y):
             return 0
+        # 竖直墙:1
         else:
             return 1
 
@@ -1630,11 +1694,11 @@ def create_training_data(folder_path, res_folder_path):
 
 if __name__ == "__main__":
     # 待处理的图片&json文件目录
-    folder_path = "sjj/data"
+    folder_path = r"./sjj_v2/data"
     # 解析结果可视化目录
-    res_folder_path = "sjj/result"
+    res_folder_path = r"./sjj_v2/result"
 
-    train_folder_path = "sjj/traindata"
+    train_folder_path = r"./sjj_v2/traindata"
     if not os.path.exists(res_folder_path):
         os.makedirs(res_folder_path)
     all_folders = os.listdir(folder_path)

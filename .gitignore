@@ -15,3 +15,13 @@ dataPreprocess/sjj
 dataPreprocess/sjj_v2
 models/checkpoint/*
 models/test
+dataprepare/fromSJJ/history/
+dataprepare/fromSJJ/data/
+.idea
+.vscode
+.history
+/dataprepare/fromSJJ/data/
+/models/utils/sjj_v2/
+/models/checkpoint/
+/deploy/checkpoint/
+/dataPreprocess/history/

@@ -2,6 +2,8 @@ from models.drn import drn_d_54
 #from models.drn import drn_d_105
 from torch import nn
 from models.modules import *
+from models.utils.utils import *
+
 
 class Model(nn.Module):
     def __init__(self, options):
