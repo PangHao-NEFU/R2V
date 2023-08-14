@@ -7,15 +7,17 @@ critical_dim_max = 50000
 
 
 def dim_rec_num(ocr_result_bboxs):
-    num_list = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9']  # 过滤非数字字符
+    num_list = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9','.']  # 过滤非数字字符
     ocr_rect_num = {}
     for key in range(len(ocr_result_bboxs)):
         rect_list = ocr_result_bboxs[key][0]
         character_list = ocr_result_bboxs[key][1]
         characters = []
         for char in character_list:
-            if '.' == char or ' ' == char:
+            if ' ' == char:
                 break
+            if 'm' == char:
+                characters.append(char)
             if (0 != len(characters) and ('o' == char or 'O' == char)):
                 characters.append('0')
             if char not in num_list:
@@ -24,7 +26,16 @@ def dim_rec_num(ocr_result_bboxs):
         char_str = "".join(characters)
         if len(char_str) < 1:
             continue
-        dim_num = int(char_str)
+        if char_str.startswith(".") or 'm' in char_str:
+            continue
+        if "." in char_str:
+            char_str = char_str.replace(".", "")
+            if int(char_str) < 99:
+                dim_num = int(char_str) * 100
+            else:
+                continue
+        else:
+            dim_num = int(char_str)
         if (dim_num > critical_dim_max) or (dim_num <= critical_dim_min):
             continue
         else:
@@ -49,12 +60,21 @@ def get_up_down_dim(ocr_rect_num):
     if len(ocr_rect_num) > 0:
         for key in ocr_rect_num:
             rect = ocr_rect_num[key][0]
-            tl_br_list.append(rect)
+            if (ocr_rect_num[key][0][2] - ocr_rect_num[key][0][0] - ocr_rect_num[key][0][7] + ocr_rect_num[key][0][1]) >= 1:
+                tl_br_list.append(rect)
+        print(tl_br_list)
         sorted(tl_br_list, key=(lambda x: x[7]))
-        br_y_max = tl_br_list[-2][7]
-        br_y_second_max = tl_br_list[-1][7]
-        br_y_min = tl_br_list[0][7]
-        br_y_second_min = tl_br_list[1][7]
+        if len(tl_br_list) >= 2:
+            br_y_max = tl_br_list[-2][7]
+            br_y_second_max = tl_br_list[-1][7]
+            br_y_min = tl_br_list[0][7]
+            br_y_second_min = tl_br_list[1][7]
+        else:
+            br_y_max = tl_br_list[0][7]
+            br_y_second_max = tl_br_list[0][7]
+            br_y_min = tl_br_list[0][7]
+            br_y_second_min = tl_br_list[0][7]
+
         if br_y_max - br_y_second_max > 5:
             br_y_max = br_y_second_max
         if br_y_second_min - br_y_min > 5:
@@ -177,7 +197,7 @@ def get_corner_points(image, bboxs):
         x1, y1, x2, y2, conf = bound
         crop_img = image.crop((x1, y1, x2, y2))
         crop_img_array = cv2.cvtColor(np.asarray(crop_img), cv2.COLOR_BGR2GRAY)
-        corners = cv2.goodFeaturesToTrack(crop_img_array, 10, qualityLevel=0.6, minDistance=3, useHarrisDetector=False)
+        corners = cv2.goodFeaturesToTrack(crop_img_array, 10, qualityLevel=0.8, minDistance=2, useHarrisDetector=False)
         if corners is not None and len(corners) > 0:
             for pt in corners:
                 x = np.int32(pt[0][0]) + x1
