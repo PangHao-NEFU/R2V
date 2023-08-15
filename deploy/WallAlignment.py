@@ -1,6 +1,8 @@
 import math
 
 import cv2
+from numpy import mean
+
 from Primitive import *
 
 
@@ -619,12 +621,24 @@ class WallAlignment(object):
             direction = cur_wall_line.line_dim()
             if direction == 0:
                 center = 0.5 * (cur_wall_line.boundary_range_box[1] + cur_wall_line.boundary_range_box[3])
-                if np.abs(center-cur_wall_line.start_point.y)<20:
+                open_center = center
+                if len(cur_wall_line.openings)>0:
+                    open_y_list = []
+                    for open in cur_wall_line.openings:
+                        open_y_list.append(open.start_point.y)
+                        open_y_list.append(open.start_point.y)
+                    open_center = mean(open_y_list)
+                # print("np.abs(center-cur_wall_line.start_point.y)",center-cur_wall_line.start_point.y,center-open_center,center,cur_wall_line.start_point.y,open_center)
+                if np.abs(center-open_center)>5:
+                    cur_wall_line.start_point.y = open_center
+                    cur_wall_line.end_point.y = open_center
+                elif np.abs(center-cur_wall_line.start_point.y)<20:
                     cur_wall_line.start_point.y = center
                     cur_wall_line.end_point.y = center
             elif direction == 1:
                 center = 0.5 * (cur_wall_line.boundary_range_box[0] + cur_wall_line.boundary_range_box[2])
-                if np.abs(center - cur_wall_line.start_point.x) < 20:
+                # print("np.abs(center - cur_wall_line.start_point.x)",np.abs(center - cur_wall_line.start_point.x))
+                if np.abs(center - cur_wall_line.start_point.x) <20:
                     cur_wall_line.start_point.x = center
                     cur_wall_line.end_point.x = center
             elif direction == -1:

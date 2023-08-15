@@ -1,7 +1,7 @@
 from drn import drn_d_54
 #from models.drn import drn_d_105
 from modules import *
-from utils import NUM_CORNERS
+from utils_ikea import NUM_CORNERS
 
 
 class Model(nn.Module):
@@ -22,4 +22,7 @@ class Model(nn.Module):
         features = self.feature_conv(features)
         segmentation = self.upsample(self.segmentation_pred(features))
         segmentation = segmentation.transpose(1, 2).transpose(2, 3).contiguous()
-        return torch.sigmoid(segmentation)
+        if self.options.method_type == 1:
+            return torch.sigmoid(segmentation),
+        else:
+            return torch.sigmoid(segmentation[:, :, :, :NUM_CORNERS]), segmentation[:, :, :, NUM_CORNERS:NUM_CORNERS + NUM_ICONS + 2], segmentation[:, :, :, -(NUM_ROOMS + 2):]

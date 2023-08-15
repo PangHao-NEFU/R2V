@@ -166,7 +166,7 @@ class Builder(object):
                 # transform image data to 512 * 512.
                 cur_heat_map_img = self.transform_image_data(cur_heat_map_img)
 
-                junctions_list = self._extract_junctions(cur_heat_map_img, 300, cur_category, cur_sub_category,
+                junctions_list = self._extract_junctions(cur_heat_map_img, 100, cur_category, cur_sub_category,
                                                          heat_map_threshold=self.heat_map_wall_threshold)
                 all_wall_points.extend(junctions_list)
 
@@ -216,28 +216,28 @@ class Builder(object):
 
             self._fit_wall_openings()  # 计算墙和门/窗的关系，判断门/窗是否在某一墙上
 
-            # tmp_resize_data = copy.deepcopy(resize_floor_plan_img_data)
-            # tmp_resize_data = np.ones(
-            #     (resize_floor_plan_img_data.shape[0], resize_floor_plan_img_data.shape[1], 3),
-            #     np.uint8) * 255
-            # self.draw_lines(all_wall_lines=self.all_door_lines,
-            #                 file_name=os.path.join(self.options.res_folder_path, "DoorLins.png"),
-            #                 background_img_data=tmp_resize_data, print_Point=False)
+            tmp_resize_data = copy.deepcopy(resize_floor_plan_img_data)
+            # # tmp_resize_data = np.ones(
+            # #     (resize_floor_plan_img_data.shape[0], resize_floor_plan_img_data.shape[1], 3),
+            # #     np.uint8) * 255
+            self.draw_lines(all_wall_lines=self.all_door_lines,
+                            file_name=os.path.join(self.options.res_folder_path, "DoorLins.png"),
+                            background_img_data=tmp_resize_data, print_Point=False)
 
-            # tmp_resize_data = np.ones(
-            #     (resize_floor_plan_img_data.shape[0], resize_floor_plan_img_data.shape[1], 3),
-            #     np.uint8) * 255
-            # self.draw_lines(all_wall_lines=self.all_opening_lines,
-            #                 file_name=os.path.join(self.options.res_folder_path, "WindowLins.png"),
-            #                 background_img_data=tmp_resize_data, print_Point=False)
+            tmp_resize_data = np.ones(
+                (resize_floor_plan_img_data.shape[0], resize_floor_plan_img_data.shape[1], 3),
+                np.uint8) * 255
+            self.draw_lines(all_wall_lines=self.all_opening_lines,
+                            file_name=os.path.join(self.options.res_folder_path, "WindowLins.png"),
+                            background_img_data=tmp_resize_data, print_Point=False)
 
-            # tmp_resize_data = copy.deepcopy(resize_floor_plan_img_data)
+            tmp_resize_data = copy.deepcopy(resize_floor_plan_img_data)
             # tmp_resize_data = np.ones(
             #     (resize_floor_plan_img_data.shape[0], resize_floor_plan_img_data.shape[1], 3),
             #     np.uint8) * 255
-            # self.draw_lines(all_wall_lines=self.all_wall_lines,
-            #                 file_name=os.path.join(self.options.res_folder_path, "debugLins.png"),
-            #                 background_img_data=tmp_resize_data, print_Point=False)
+            self.draw_lines(all_wall_lines=self.all_wall_lines,
+                            file_name=os.path.join(self.options.res_folder_path, "debugLins.png"),
+                            background_img_data=tmp_resize_data, print_Point=False)
 
             self._remove_invalid_inclined_wall()  # 斜墙剪枝逻辑
 
@@ -260,8 +260,14 @@ class Builder(object):
 
             alignment_obj.align()
 
+
             # transform the points to original image scope.
             self.transform_back_all_points()
+
+            # tmp_resize_data = copy.deepcopy(resize_floor_plan_img_data)
+            # self.draw_lines(all_wall_lines=self.all_wall_lines,
+            #                 file_name=os.path.join(self.options.res_folder_path, "all_wall_lines.png"),
+            #                 background_img_data=tmp_resize_data, print_Point=False)
 
             # 当都准备好的时候，后续操作。
             self.post_process()
@@ -299,8 +305,8 @@ class Builder(object):
                     minValue:maxValue + 1, :] = line_color
                     cv2.putText(image, (str(point_1.x) + ',' + str(point_1.y)), (point_1.x, point_1.y),
                                 cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (255, 255, 0))
-                    cv2.putText(image, (str(point_2.x) + ',' + str(point_2.y)), (point_2.x, point_2.y),
-                                cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (255, 255, 0))
+                    # cv2.putText(image, (str(point_2.x) + ',' + str(point_2.y)), (point_2.x, point_2.y),
+                    #             cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (255, 255, 0))
                 elif line_dim == 1:
                     if print_Point:
                         print((point_1.x, point_1.y), (point_2.x, point_2.y))
