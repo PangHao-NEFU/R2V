@@ -1,11 +1,13 @@
 import torch
 from torch.utils.data import DataLoader
-
+import numpy as np
 from tqdm import tqdm
 import os
+import cv2
 
-from baseinc import fpLog
-from utils_ikea import *
+
+import logging
+from utils import *
 from options import parse_args
 
 from model import Model
@@ -125,7 +127,7 @@ def check_predict_data(options, corner_pred, corner_gt):
         # fpLog.info("Avg Diff = {0}, Max Diff = {1}".format(max_diff / max_count, largest_diff))
         print("Avg Diff = {0}, Max Diff = {1}".format(max_diff / max_count, largest_diff))
     except Exception as err:
-        fpLog.info(err)
+        logging.error(err)
 
 
 def testOneEpoch(options, model, dataset):
@@ -222,6 +224,6 @@ if __name__ == '__main__':
     args.outputHeight = 512
     args.restore = 0
 
-    fpLog.info('keyname=%s task=%s started' % (args.keyname, args.task))
+    logging.info('keyname=%s task=%s started' % (args.keyname, args.task))
 
     main(args)
