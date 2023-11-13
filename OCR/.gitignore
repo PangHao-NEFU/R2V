@@ -1,8 +1,0 @@
-**/ipynb_checkpoints
-**/checkpoints
-/test/
-/check/
-/check_data/
-.idea/
-.vscode/
-.history/
