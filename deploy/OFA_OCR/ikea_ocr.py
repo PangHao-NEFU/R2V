@@ -172,15 +172,15 @@ class IKEA_OCR_Detect(object):
 
 
 if __name__ == "__main__":
-    ocr_model_path = '../checkpoint/ocr_general_clean.pt'
-    yolo_model_path = '../checkpoint/floorplan_best.pt'
+    ocr_model_path = '../checkpoints/ocr_general_clean.pt'
+    yolo_model_path = '../checkpoints/floorplan_best.pt'
     folder_path = os.path.dirname(os.path.abspath(__file__))
     imagePath = "2b2f621c-f6b0-48c7-b785-b425097df544.png"
     img_file_path = os.path.join(folder_path, "check_data/" + imagePath)
     predictor = IKEA_OCR_Detect(ocr_model_path, yolo_model_path)
     res = predictor.ikea_ocr(img_file_path)
     cropped_img, boundary_idx, y_value, ocr_point_list = get_boundaryDirection_yValue_ocrPoints(img_file_path, res)
-    yolo_bboxs = predictor._get_yolo_detect_bbox(cropped_img)
+    yolo_bboxs = predictor.get_yolo_detect_bbox(cropped_img)
     corner_point_map = get_corner_points(cropped_img, yolo_bboxs)
     print(boundary_idx, y_value, ocr_point_list, yolo_bboxs, corner_point_map)
     up_ratios = get_ocr_ratio(boundary_idx, ocr_point_list, corner_point_map, y_value)

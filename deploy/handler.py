@@ -15,7 +15,7 @@ class ModelHandler(object):
         with zipfile.ZipFile(model_dir + '/model.bin', 'r') as zip_ref:
             zip_ref.extractall(model_dir)
         print("cuda.is_available ", torch.cuda.is_available(), " device_count ", torch.cuda.device_count())
-        model_config_path = os.path.join(model_dir, 'checkpoint/checkpoint_100.pth')
+        model_config_path = os.path.join(model_dir, 'checkpoints/checkpoint_100.pth')
         print("model_config_path:", model_config_path)
         from predict import Predict
         print("parse_args start~")

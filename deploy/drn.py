@@ -319,7 +319,7 @@ def drn_d_54(pretrained=False, out_map=256, num_classes=20, drn_model_dir='/serv
 
         cur_folder_path = os.path.dirname(os.path.abspath(__file__))
         # parent_folder_path = os.path.dirname(cur_folder_path)
-        drn_model_dir = os.path.join(cur_folder_path, "checkpoint")
+        drn_model_dir = os.path.join(cur_folder_path, "checkpoints")
         
         pretrained_dict = model_zoo.load_url(model_urls['drn-d-54'], model_dir=drn_model_dir)
         pretrained_dict = {k: v for k, v in pretrained_dict.items() if 'fc' not in k}

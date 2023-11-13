@@ -214,8 +214,8 @@ if __name__ == '__main__':
     args.keyname = 'floorplan'
     args.restore = 1
     cur_folder_path = os.path.dirname(os.path.abspath(__file__))
-    checkpoint_folder_path = os.path.join(cur_folder_path, "checkpoint")
-    args.checkpoint_dir = 'checkpoint/'
+    checkpoint_folder_path = os.path.join(cur_folder_path, "checkpoints")
+    args.checkpoint_dir = 'checkpoints/'
     args.checkpoint_dir = checkpoint_folder_path
     args.test_dir = 'test/' + args.keyname
     args.model_type = 1

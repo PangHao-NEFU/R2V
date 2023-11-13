@@ -89,13 +89,13 @@ class OFATask(FairseqTask):
     def setup_task(cls, cfg: DictConfig, **kwargs):
         """Setup the task."""
         # print("cfg.bpe_dir",cfg.bpe_dir)
-        cfg.bpe_dir = cfg.bpe_dir.replace("utils","OFA_OCR/utils_")
+        cfg.bpe_dir = cfg.bpe_dir.replace('utils',"utils_")
         # load dictionaries
         src_dict = cls.load_dictionary(
-            os.path.join(cfg.bpe_dir, "dict.txt")
+            os.path.join(os.getcwd(),cfg.bpe_dir, "dict.txt")
         )
         tgt_dict = cls.load_dictionary(
-            os.path.join(cfg.bpe_dir, "dict.txt")
+            os.path.join(os.getcwd(),cfg.bpe_dir, "dict.txt")
         )
         src_dict.add_symbol("<mask>")
         tgt_dict.add_symbol("<mask>")
