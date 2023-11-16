@@ -1,7 +1,7 @@
 #from gurobipy import *
 from pulp import *
 import copy
-from dataPreprocess.dataCheck.utils import *
+from utils import *
 from skimage import measure
 
 GAPS = {'wall_extraction': 5, 'door_extraction': 5, 'icon_extraction': 5, 'wall_neighbor': 5, 'door_neighbor': 5, 'icon_neighbor': 5, 'wall_conflict': 5, 'door_conflict': 5, 'icon_conflict': 5, 'wall_icon_neighbor': 5, 'wall_icon_conflict': 5, 'wall_door_neighbor': 5, 'door_point_conflict': 5}
@@ -208,7 +208,7 @@ def extractCorners(heatmaps, threshold, gap, cornerType = 'wall', augment=False,
 
 
 ## Corner type augmentation to enrich the candidate set (e.g., a T-shape corner can be treated as a L-shape corner)
-def augmentPoints(points, decreasingTypes = [2], increasingTypes = [1]):
+def augmentPoints(points, decreasingTypes = [2], increasingTypes = [1],gap=1):
   orientationMap = {}
   for pointType, orientationOrientations in enumerate(POINT_ORIENTATIONS):
     for orientation, orientations in enumerate(orientationOrientations):
