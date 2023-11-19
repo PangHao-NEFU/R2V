@@ -25,7 +25,7 @@ class ImageTransform(object):
             return None
         image = copy.copy(img_data)
         max_size = max(self.option.width, self.option.height)
-        # X, Y
+        # X, Y 图片宽高
         self.image_width = image.shape[1]
         self.image_height = image.shape[0]
         

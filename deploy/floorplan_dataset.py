@@ -7,6 +7,7 @@ import time
 from utils import *
 from skimage import measure
 import cv2
+import os
 
 
 def calcLineDirection(line, threshold=5):
@@ -285,7 +286,7 @@ class FloorplanDataset(Dataset):
         self.imagePaths = []
         # self.dataFolder = '/Users/hehao/Desktop/Henry/IKEA/Prometheus/IKEA_img2floorplan/models/datasets/'
         self.dataFolder = dataFolder
-        with open(self.dataFolder + split + '.txt') as f:
+        with open(os.path.join(self.dataFolder, split + '.txt')) as f:
             
             for line in f:
                 self.imagePaths.append([value.strip() for value in line.split('\t')])  # 第一项是图片地址,第二项是标注地址
@@ -322,7 +323,7 @@ class FloorplanDataset(Dataset):
             index = debug
             pass
         
-        image = cv2.imread(self.dataFolder + self.imagePaths[index][0])
+        image = cv2.imread(os.path.join(self.dataFolder, self.imagePaths[index][0]))
         random_int = np.random.randint(0, 2)
         transpose_flag = False if random_int == 0 else True
         if transpose_flag:
@@ -334,7 +335,7 @@ class FloorplanDataset(Dataset):
         openings = []
         doors = []
         semantics = {}
-        with open(self.dataFolder + self.imagePaths[index][1]) as info_file:
+        with open(os.path.join(self.dataFolder, self.imagePaths[index][1])) as info_file:
             # 打开的是图片对应的标注
             line_index = 0
             for line in info_file:

@@ -388,8 +388,10 @@ def drn_d_105(pretrained=False, **kwargs):
 
 
 if __name__ == '__main__':
-    # drn_test = drn_d_54(pretrained=True, out_map=64, num_classes=-1, out_middle=False)
+    drn_test = drn_d_54(pretrained=True, out_map=64, num_classes=-1, out_middle=False)
     tenser = torch.randn(1, 3, 688, 512)
     tensor2 = torch.rand(1, 512, 86, 64)
+    tensor3 = torch.rand(1, 3, 512, 512)
     # print(drn_test(tenser).shape)
-    print(torch.nn.AdaptiveAvgPool2d(64)(tensor2).shape)
+    # print(drn_test(tenser).shape)       # torch.Size([1, 512, 86, 64])
+    print(drn_test(tensor3).shape)

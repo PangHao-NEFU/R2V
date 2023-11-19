@@ -12,6 +12,8 @@ from options import parse_args
 from model import Model
 from floorplan_dataset import FloorplanDataset
 from IP import reconstructFloorplan
+from convNext import MyModelV3
+from multiprocessing import cpu_count
 
 
 def main(options):
@@ -32,6 +34,7 @@ def main(options):
     dataloader = DataLoader(dataset, batch_size=options.batchSize, shuffle=True, num_workers=16)
     
     model = Model(options)
+    
     # model.cuda()
     model.train()
     
@@ -90,7 +93,7 @@ def main(options):
                                 'corner': corner_pred.max(-1)[
                                     1].detach().cpu().numpy()
                             })]
-                    )
+                )
             continue
         print('loss', np.array(epoch_losses).mean(0))
         if epoch % 5 == 0:
@@ -181,7 +184,7 @@ def testOneEpoch(options, model, dataset):
                         'room': room_pred.max(-1)[
                             1].detach().cpu().numpy()
                     })]
-                )
+            )
             for batchIndex in range(len(images)):
                 corner_heatmaps = corner_pred[batchIndex].detach().cpu().numpy()
                 icon_heatmaps = torch.nn.functional.softmax(icon_pred[batchIndex], dim=-1).detach().cpu().numpy()
@@ -195,7 +198,7 @@ def testOneEpoch(options, model, dataset):
                     debug_prefix='test', heatmapValueThresholdWall=None,
                     heatmapValueThresholdDoor=None, heatmapValueThresholdIcon=None,
                     enableAugmentation=True
-                    )
+                )
                 continue
             if options.visualizeMode == 'debug':
                 exit(1)
@@ -220,9 +223,109 @@ def visualizeBatch(options, images, dicts, indexOffset=0, prefix=''):
                 cv2.imwrite(
                     filename.replace('image', info + '_' + name),
                     drawSegmentationImage(result_dict[info][batchIndex], blackIndex=0, blackThreshold=0.5)
-                    )
+                )
                 continue
             continue
+        continue
+    return
+
+
+def main2(options):
+    if not os.path.exists(options.checkpoint_dir):
+        try:
+            os.system("mkdir -p %s" % options.checkpoint_dir)
+        except Exception as e:
+            os.mkdir(options.checkpoint_dir)
+    
+    if not os.path.exists(options.test_dir):
+        try:
+            os.system("mkdir -p %s" % options.test_dir)
+        except Exception as e:
+            os.mkdir(options.test_dir)
+    
+    # traindata_dir = '/Users/hehao/Desktop/Henry/IKEA/Prometheus/IKEA_img2floorplan/models/datasets/'
+    traindata_dir = r"D:\DeepLearningDataset\SJJDataset1k(01)\traindata"
+    dataset = FloorplanDataset(options, 'train', traindata_dir, random=True)
+    dataloader = DataLoader(dataset, batch_size=options.batchSize, shuffle=True, num_workers=cpu_count())
+    
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    # model = Model(options)
+    model = MyModelV3().to(device)
+    # model.cuda()
+    model.train()
+    
+    if options.gpuFlag == 1:
+        if not torch.cuda.is_available():
+            options.gpuFlag = 0
+    
+    if options.restore == 1:  # 1表示继续训练
+        print('restore')
+        checkpoint_file_path = os.path.join(options.checkpoint_dir, 'checkpoint.pth')
+        model.load_state_dict(torch.load(checkpoint_file_path, map_location='cpu'))
+        pass
+    
+    if options.task == 'test':
+        dataset_test = FloorplanDataset(options, split='test', random=False)
+        testOneEpoch(options, model, dataset_test)
+        exit(1)
+    
+    # optimizer = torch.optim.Adam(model.parameters(), lr=options.LR)
+    optimizer = torch.optim.Adam(model.parameters())
+    if options.restore == 1 and os.path.exists(options.checkpoint_dir + '/optim.pth'):
+        optimizer.load_state_dict(torch.load(options.checkpoint_dir + '/optim.pth'))
+        pass
+    
+    for epoch in range(options.numEpochs):
+        epoch_losses = []
+        data_iterator = tqdm(dataloader, total=len(dataset) // options.batchSize + 1)
+        for sampleIndex, sample in enumerate(data_iterator):
+            # 1.重置梯度
+            optimizer.zero_grad()
+            
+            images, corner_gt, icon_gt, room_gt = sample[0], sample[1], sample[2], sample[3]  # gt表示groundTruth标注数据
+            images = images.to(device)
+            corner_gt = corner_gt.to(device)
+            # 2.前向传播
+            corner_pred, = model(images)
+            # 3.计算损失
+            corner_loss = torch.nn.functional.binary_cross_entropy(corner_pred, corner_gt)  # 交叉熵损失函数
+            a = True if epoch % 5 == 0 else False
+            if epoch != 0 and a:
+                check_predict_data(options, corner_pred, corner_gt)
+            
+            # 3.1 计算加权总损失
+            losses = [corner_loss]
+            loss = sum(losses)
+            
+            loss_values = [l.data.item() for l in losses]
+            epoch_losses.append(loss_values)
+            status = str(epoch + 1) + ' loss: '
+            for l in loss_values:
+                status += '%0.5f ' % l
+                continue
+            data_iterator.set_description(status)
+            # 4.反向传播
+            loss.backward()
+            optimizer.step()
+            
+            if sampleIndex % 500 == 0:
+                visualizeBatch(
+                    options, images.detach().cpu().numpy(), [('gt',
+                    {'corner': corner_gt.detach().cpu().numpy()}),
+                        (
+                            'pred', {
+                                'corner': corner_pred.max(-1)[
+                                    1].detach().cpu().numpy()
+                            })]
+                )
+            continue
+        print('loss', np.array(epoch_losses).mean(0))
+        if epoch % 5 == 0:
+            torch.save(model.state_dict(), os.path.join(options.checkpoint_dir, f'./checkpoint_new{epoch}.pth'))
+            torch.save(optimizer.state_dict(), os.path.join(options.checkpoint_dir, f'./optim_new{epoch}.pth'))
+            pass
+        
+        # testOneEpoch(options, model, dataset_test)
         continue
     return
 
@@ -247,4 +350,11 @@ if __name__ == '__main__':
     if not os.path.exists(args.checkpoint_dir):
         os.mkdir(args.checkpoint_dir)
         pass
-    main(args)
+    
+    main2(args)
+    # model = Model(args)
+    # model.eval()
+    # testx = torch.rand(1, 3, 512, 512)
+    # a = model(testx)
+    # print(a)
+    # main(args)

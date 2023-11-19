@@ -22,3 +22,7 @@ dataprepare/fromSJJ/history
 dataprepare/fromSJJ/data
 **/checkpoints
 **/checkpoint
+
+# log
+logs/
+log/

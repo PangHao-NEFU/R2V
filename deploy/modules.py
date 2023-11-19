@@ -52,7 +52,7 @@ class ConvBlock(nn.Module):
 
 ## The pyramid module from pyramid scene parsing
 class PyramidModule(nn.Module):
-    def __init__(self, options, in_planes, middle_planes, scales=[32, 16, 8, 4]):
+    def __init__(self, options, in_planes, middle_planes, scales=[64, 32, 16, 8]):
         super(PyramidModule, self).__init__()
         
         self.pool_1 = torch.nn.AvgPool2d((scales[0] * options.height // options.width, scales[0]))
@@ -65,14 +65,19 @@ class PyramidModule(nn.Module):
         self.conv_4 = ConvBlock(in_planes, middle_planes, kernel_size=1)
         self.upsample = torch.nn.Upsample(
             size=(scales[0] * options.height // options.width, scales[0]), mode='bilinear'
-            )
+        )
         return
     
     def forward(self, inp):
         x_1 = self.upsample(self.conv_1(self.pool_1(inp)))
+        # print(f"x1shape:{x_1.shape}")
+        
         x_2 = self.upsample(self.conv_2(self.pool_2(inp)))
+        # print(f"x2shape:{x_2.shape}")
         x_3 = self.upsample(self.conv_3(self.pool_3(inp)))
+        # print(f"x3shape:{x_3.shape}")
         x_4 = self.upsample(self.conv_4(self.pool_4(inp)))
+        # print(f"x4shape:{x_4.shape}")
         out = torch.cat([inp, x_1, x_2, x_3, x_4], dim=1)
         return out
 
@@ -148,6 +153,7 @@ class FPN(nn.Module):
         p1 = self.upsample(p2) + self.conv_1_1(c1)
         
         resized_p4 = self.upSampleFinal(self.conv(p4))
+        
         resized_p3 = self.upSampleFinal(self.conv(p3))
         resized_p2 = self.upSampleFinal(self.conv(p2))
         resized_p1 = self.upSampleFinal(self.conv(p1))
@@ -258,8 +264,21 @@ def warpImages(options, planes, images, transformations, metadata):
 
 if __name__ == '__main__':
     tensor2 = torch.rand(1, 512, 64, 64)
-    pyramid = PyramidModule({}, 512, 128)
-    fpn = FPN()
-    print(fpn(tensor2).shape)
+    
+    
+    class Options:
+        def __init__(self, height, width):
+            self.height = height
+            self.width = width
+            pass
+    
+    
+    pyramid = PyramidModule(Options(512, 512), 512, 128)
+    pyramid(tensor2)
+    # fpn = FPN()
+    # print(fpn(tensor2).shape)
     # print(pyramid(tensor2).shape)
     # [1, 1024, 64, 64]
+    # ap = torch.nn.AvgPool2d((64, 64))
+    # aap = nn.AdaptiveAvgPool2d(64)
+    # print(aap(tensor2).shape)
