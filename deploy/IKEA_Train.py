@@ -4,6 +4,7 @@ from torch.utils.data import DataLoader
 # import numpy as np
 from tqdm import tqdm
 import os
+from torch.utils.tensorboard import SummaryWriter
 # import cv2
 
 import logging
@@ -68,7 +69,7 @@ def main(options):
             images, corner_gt, icon_gt, room_gt = sample[0], sample[1], sample[2], sample[3]  # gt表示groundTruth标注数据
             corner_pred, = model(images)
             corner_loss = torch.nn.functional.binary_cross_entropy(corner_pred, corner_gt)  # 交叉熵损失函数
-            a = True if epoch % 5 == 0 else False
+            a = True if epoch % 10 == 0 else False
             if epoch != 0 and a:
                 check_predict_data(options, corner_pred, corner_gt)
             losses = [corner_loss]
@@ -244,15 +245,25 @@ def main2(options):
             os.mkdir(options.test_dir)
     
     # traindata_dir = '/Users/hehao/Desktop/Henry/IKEA/Prometheus/IKEA_img2floorplan/models/datasets/'
-    traindata_dir = r"D:\DeepLearningDataset\SJJDataset1k(01)\traindata"
+    # traindata_dir = r"D:\DeepLearningDataset\SJJDataset1k(01)\traindata"
+    traindata_dir = r"/root/autodl-tmp/traindata2k"
+    
     dataset = FloorplanDataset(options, 'train', traindata_dir, random=True)
-    dataloader = DataLoader(dataset, batch_size=options.batchSize, shuffle=True, num_workers=cpu_count())
+    dataloader = DataLoader(dataset, batch_size=options.batchSize, shuffle=True, num_workers=4)  # 这里worker不能调太大,尤其是服务器
+    
+    if torch.cuda.is_available():
+        print("cuda is ready!")
+    else:
+        print("cpu now")
     
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     # model = Model(options)
-    model = MyModelV3().to(device)
+    model = MyModelV3(options).to(device)
     # model.cuda()
     model.train()
+    
+    # tensorboard
+    tbwriter = SummaryWriter(os.path.join(options.logDir, 'modelv3'))
     
     if options.gpuFlag == 1:
         if not torch.cuda.is_available():
@@ -269,64 +280,79 @@ def main2(options):
         testOneEpoch(options, model, dataset_test)
         exit(1)
     
+    if options.showGraphInTensorboard == 1:
+        tbwriter.add_graph(model, torch.rand(1, 3, 512, 512).to(device))
+    
     # optimizer = torch.optim.Adam(model.parameters(), lr=options.LR)
     optimizer = torch.optim.Adam(model.parameters())
     if options.restore == 1 and os.path.exists(options.checkpoint_dir + '/optim.pth'):
         optimizer.load_state_dict(torch.load(options.checkpoint_dir + '/optim.pth'))
         pass
-    
+    print('start training~~~~')
     for epoch in range(options.numEpochs):
-        epoch_losses = []
-        data_iterator = tqdm(dataloader, total=len(dataset) // options.batchSize + 1)
-        for sampleIndex, sample in enumerate(data_iterator):
-            # 1.重置梯度
-            optimizer.zero_grad()
+        try:
+            print(f"current epoch:{epoch}")
+            epoch_losses = []
+            data_iterator = tqdm(dataloader, total=len(dataset) // options.batchSize + 1)  # 数据迭代器
+            for sampleIndex, sample in enumerate(data_iterator):
+                try:
+                    # 1.重置梯度
+                    optimizer.zero_grad()
+                    
+                    images, corner_gt, icon_gt, room_gt = sample[0], sample[1], sample[2], sample[
+                        3]  # gt表示groundTruth标注数据
+                    images = images.to(device)
+                    corner_gt = corner_gt.to(device)
+                    
+                    # 2.前向传播
+                    corner_pred, = model(images)
+                    
+                    # 3.计算损失
+                    corner_loss = torch.nn.functional.binary_cross_entropy(corner_pred, corner_gt)  # 交叉熵损失函数
+                    a = True if epoch % 5 == 0 else False
+                    if epoch != 0 and a:
+                        check_predict_data(options, corner_pred, corner_gt)
+                    
+                    # 3.1 计算加权总损失
+                    losses = [corner_loss]
+                    loss = sum(losses)
+                    
+                    loss_values = [l.data.item() for l in losses]
+                    epoch_losses.append(loss_values)
+                    status = str(epoch + 1) + ' loss: '
+                    for l in loss_values:
+                        status += '%0.5f ' % l
+                        continue
+                    data_iterator.set_description(status)
+                    # 4.反向传播
+                    loss.backward()
+                    optimizer.step()
+                    
+                    if sampleIndex % 500 == 0:
+                        visualizeBatch(
+                            options, images.detach().cpu().numpy(), [('gt',
+                            {'corner': corner_gt.detach().cpu().numpy()}),
+                                (
+                                    'pred', {
+                                        'corner': corner_pred.max(-1)[
+                                            1].detach().cpu().numpy()
+                                    })]
+                        )
+                    continue
+                except Exception as e:
+                    print(f"train error!!! message:{e}")
             
-            images, corner_gt, icon_gt, room_gt = sample[0], sample[1], sample[2], sample[3]  # gt表示groundTruth标注数据
-            images = images.to(device)
-            corner_gt = corner_gt.to(device)
-            # 2.前向传播
-            corner_pred, = model(images)
-            # 3.计算损失
-            corner_loss = torch.nn.functional.binary_cross_entropy(corner_pred, corner_gt)  # 交叉熵损失函数
-            a = True if epoch % 5 == 0 else False
-            if epoch != 0 and a:
-                check_predict_data(options, corner_pred, corner_gt)
+            print('loss', np.array(epoch_losses).mean(0))
+            tbwriter.add_scalar('loss', np.array(epoch_losses).mean(0), epoch)
+            if epoch % 10 == 0:
+                torch.save(model.state_dict(), os.path.join(options.checkpoint_dir, f'./checkpoint_new{epoch}.pth'))
+                torch.save(optimizer.state_dict(), os.path.join(options.checkpoint_dir, f'./optim_new{epoch}.pth'))
+                pass
             
-            # 3.1 计算加权总损失
-            losses = [corner_loss]
-            loss = sum(losses)
-            
-            loss_values = [l.data.item() for l in losses]
-            epoch_losses.append(loss_values)
-            status = str(epoch + 1) + ' loss: '
-            for l in loss_values:
-                status += '%0.5f ' % l
-                continue
-            data_iterator.set_description(status)
-            # 4.反向传播
-            loss.backward()
-            optimizer.step()
-            
-            if sampleIndex % 500 == 0:
-                visualizeBatch(
-                    options, images.detach().cpu().numpy(), [('gt',
-                    {'corner': corner_gt.detach().cpu().numpy()}),
-                        (
-                            'pred', {
-                                'corner': corner_pred.max(-1)[
-                                    1].detach().cpu().numpy()
-                            })]
-                )
+            # testOneEpoch(options, model, dataset_test)
             continue
-        print('loss', np.array(epoch_losses).mean(0))
-        if epoch % 5 == 0:
-            torch.save(model.state_dict(), os.path.join(options.checkpoint_dir, f'./checkpoint_new{epoch}.pth'))
-            torch.save(optimizer.state_dict(), os.path.join(options.checkpoint_dir, f'./optim_new{epoch}.pth'))
-            pass
-        
-        # testOneEpoch(options, model, dataset_test)
-        continue
+        finally:
+            tbwriter.close()
     return
 
 
@@ -346,6 +372,8 @@ if __name__ == '__main__':
     args.outputHeight = 512
     args.restore = 0
     args.numEpochs = 500
+    args.logDir = 'log/'
+    args.showGraphInTensorboard = 1
     logging.info('keyname=%s task=%s started' % (args.keyname, args.task))
     if not os.path.exists(args.checkpoint_dir):
         os.mkdir(args.checkpoint_dir)

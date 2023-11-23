@@ -286,7 +286,7 @@ class FloorplanDataset(Dataset):
         self.imagePaths = []
         # self.dataFolder = '/Users/hehao/Desktop/Henry/IKEA/Prometheus/IKEA_img2floorplan/models/datasets/'
         self.dataFolder = dataFolder
-        with open(os.path.join(self.dataFolder, split + '.txt')) as f:
+        with open(os.path.join(self.dataFolder, split + '.txt'), 'r') as f:
             
             for line in f:
                 self.imagePaths.append([value.strip() for value in line.split('\t')])  # 第一项是图片地址,第二项是标注地址
