@@ -39,8 +39,19 @@ class ConvBlock(nn.Module):
                 self.bn = nn.BatchNorm3d(out_planes)
                 pass
             pass
-        self.relu = nn.ReLU(inplace=True)
+        self.relu = nn.LeakyReLU(inplace=True)
+        self._init_weight()
         return
+    
+    def _init_weight(self):
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                nn.init.kaiming_normal_(m.weight, mode='fan_out')
+                if m.bias is not None:
+                    nn.init.zeros_(m.bias)
+            elif isinstance(m, nn.BatchNorm2d):
+                nn.init.ones_(m.weight)
+                nn.init.zeros_(m.bias)
     
     def forward(self, inp):
         # return self.relu(self.conv(inp))
@@ -70,14 +81,14 @@ class PyramidModule(nn.Module):
     
     def forward(self, inp):
         x_1 = self.upsample(self.conv_1(self.pool_1(inp)))
-        # print(f"x1shape:{x_1.shape}")
+        print(f"x1shape:{x_1.shape}")
         
         x_2 = self.upsample(self.conv_2(self.pool_2(inp)))
-        # print(f"x2shape:{x_2.shape}")
+        print(f"x2shape:{x_2.shape}")
         x_3 = self.upsample(self.conv_3(self.pool_3(inp)))
-        # print(f"x3shape:{x_3.shape}")
+        print(f"x3shape:{x_3.shape}")
         x_4 = self.upsample(self.conv_4(self.pool_4(inp)))
-        # print(f"x4shape:{x_4.shape}")
+        print(f"x4shape:{x_4.shape}")
         out = torch.cat([inp, x_1, x_2, x_3, x_4], dim=1)
         return out
 

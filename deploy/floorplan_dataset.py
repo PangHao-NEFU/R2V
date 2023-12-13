@@ -324,8 +324,11 @@ class FloorplanDataset(Dataset):
             pass
         
         image = cv2.imread(os.path.join(self.dataFolder, self.imagePaths[index][0]))
+        # if os.path.splitext(self.imagePaths[index][0])[-1] == '.png':
+        #     image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         random_int = np.random.randint(0, 2)
-        transpose_flag = False if random_int == 0 else True
+        # transpose_flag = False if random_int == 0 else True
+        transpose_flag = False
         if transpose_flag:
             image = np.transpose(image, axes=(1, 0, 2))
         image_width, image_height = image.shape[1], image.shape[0]
@@ -534,13 +537,14 @@ class FloorplanDataset(Dataset):
             continue
         
         image_copy = copy.deepcopy(image)
+        # 图片归一化,cv2读出来的是bgr,深度学习
         image = (image.astype(np.float32) / 255 - 0.5).transpose((2, 0, 1))
         kernel = np.zeros((3, 3), dtype=np.uint8)
         kernel[1] = 1
         kernel[:, 1] = 1
         cornerSegmentation = cv2.dilate(cornerSegmentation, kernel, iterations=5)
         
-        if True:
+        if debug >= 0:
             cv2.imwrite('test/image' + str(index) + '.png', image_copy)
             cv2.imwrite('test/icon_segmentation' + str(index) + '.png', drawSegmentationImage(iconSegmentation))
             cv2.imwrite('test/room_segmentation' + str(index) + '.png', drawSegmentationImage(roomSegmentation))
@@ -554,3 +558,7 @@ class FloorplanDataset(Dataset):
         sample = [image, cornerSegmentation.astype(np.float32), iconSegmentation.astype(np.int64),
             roomSegmentation.astype(np.int64)]
         return sample
+
+
+if __name__ == '__main__':
+    pass
