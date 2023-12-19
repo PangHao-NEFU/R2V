@@ -65,7 +65,7 @@ class Predict(object):
         print("~~~~~load scale model~~~~~")
         # self.scale_model = IKEA_OCR_Detect(self.ocr_model_path, self.yolo_model_path)
         print("~~~~~scale model over~~~~~")
-        self.debug_util_obj = DebugInfo(self.options)
+        self.debug_util_obj = DebugInfo(self.options)  # 一些debug函数封装的对象
     
     def pre_process_image(self, img_file_path, type):
         return self.image_transform.transform_image(img_file_path, type)
@@ -87,14 +87,14 @@ class Predict(object):
                     os.makedirs(res_folder_path)
                 self.debug_util_obj.save_floorplan_imag(org_image, res_folder_path=res_folder_path)
             
-            # 1. pre-process the image.
+            # 1.1 pre-process the image.
             image = (image.astype(np.float32) / 255 - 0.5)
             
             if self.options.debugFlag == 1:
                 self.debug_util_obj.save_floorplan_imag_with_name(
                     image * 255, res_folder_path=res_folder_path,
                     name="PreProcessFullImage_512*512"
-                    )
+                )
             image = image.transpose((2, 0, 1))
             image_tensor = torch.Tensor(image)
             image_tensor = image_tensor.view((1, image_tensor.shape[0], image_tensor.shape[1], image_tensor.shape[2]))
@@ -106,30 +106,32 @@ class Predict(object):
             
             start = time.time()
             # 2. predict the results.
-            corner_pred = self.model(image_tensor)
-            corner_base_pred = self.model_base(image_tensor)
+            corner_pred = self.model(image_tensor)  # 后训练
+            corner_base_pred = self.model_base(image_tensor)  # 基本模型
             
             print("predict model cost {0}".format(time.time() - start))
             if self.options.debugFlag == 1:
                 self.debug_util_obj.save_corner_heatmaps_img(
-                    corner_pred[0], self.image_transform,
+                    corner_pred[0],
+                    self.image_transform,
                     res_folder_path=self.options.res_folder_path,
                     corner_base_pred=corner_pred[0]
-                    )
+                )
             
-            start = time.time()
             # 3. get the prediction data.
+            start = time.time()
+            # 3.1基模
             corner_base_heatmaps = corner_base_pred[0].detach().cpu().numpy()
             corner_base_heatmaps = corner_base_heatmaps[0]
-            
+            # 3.2 标模
             corner_heatmaps = corner_pred[0].detach().cpu().numpy()
             corner_heatmaps = corner_heatmaps[0]
             
             all_heatmap_data = []
             for i in range(corner_base_heatmaps.shape[2]):
-                if i < 4:
+                if i < 4:  # 前4个通道预测斜墙
                     cur_heatmap = corner_heatmaps[:, :, i]
-                else:
+                else:  # 后4个用基模
                     cur_heatmap = corner_base_heatmaps[:, :, i]
                 if self.image_transform is not None:
                     # heatmap图片尺寸适配
@@ -137,6 +139,7 @@ class Predict(object):
                 all_heatmap_data.append(cur_heatmap)
             self.all_heatmap_data = all_heatmap_data
             print("generate heatmap cost {0}".format(time.time() - start))
+            return all_heatmap_data
         except:
             raise
     
@@ -147,14 +150,14 @@ class Predict(object):
         Args:
           img_file_path: 图片地址
           measuring_scale:
-          type: 当type是url时就从url下载,其他时为本地图片
+          type: 当type是url时就从url下载,其他任意值时为本地图片
     
         Returns:
     
         """
         try:
             # 1. calculate the heatmap.
-            self.generate_heatmap_data(img_file_path, type)
+            all_heatmap = self.generate_heatmap_data(img_file_path, type)
             
             start = time.time()
             
@@ -165,7 +168,7 @@ class Predict(object):
             res = wall_builder.build_floorplan_json(
                 org_image, self.all_heatmap_data,
                 measuring_scale_ratio=measuring_scale
-                )
+            )
             
             # 3. 打印信息
             print("post process Builder function cost {0}".format(time.time() - start))
@@ -205,7 +208,7 @@ class Predict(object):
             cropped_img, boundary_idx, y_value, ocr_point_list = get_boundaryDirection_yValue_ocrPoints(
                 image,
                 res
-                )
+            )
             yolo_bboxs = self.scale_model.get_yolo_detect_bbox(cropped_img)
             corner_point_map = get_corner_points(cropped_img, yolo_bboxs)
             print("yolo_bboxs:", yolo_bboxs)
@@ -218,7 +221,7 @@ class Predict(object):
                     [up_ratios[1] - int(width / 2), int(height / 2) - up_ratios[3],
                         up_ratios[2] - int(width / 2), int(height / 2) - up_ratios[3]],
                     up_ratios[4]
-                    )
+                )
             return 1, json_res
         except:
             print("post process ratio predict function cost {0}".format(time.time() - start))

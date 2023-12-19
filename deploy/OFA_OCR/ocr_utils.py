@@ -7,7 +7,7 @@ critical_dim_max = 50000
 
 
 def dim_rec_num(ocr_result_bboxs):
-    num_list = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9','.']  # 过滤非数字字符
+    num_list = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '.']  # 过滤非数字字符
     ocr_rect_num = {}
     for key in range(len(ocr_result_bboxs)):
         rect_list = ocr_result_bboxs[key][0]
@@ -60,7 +60,8 @@ def get_up_down_dim(ocr_rect_num):
     if len(ocr_rect_num) > 0:
         for key in ocr_rect_num:
             rect = ocr_rect_num[key][0]
-            if (ocr_rect_num[key][0][2] - ocr_rect_num[key][0][0] - ocr_rect_num[key][0][7] + ocr_rect_num[key][0][1]) >= 1:
+            if (ocr_rect_num[key][0][2] - ocr_rect_num[key][0][0] - ocr_rect_num[key][0][7] + ocr_rect_num[key][0][
+                1]) >= 1:
                 tl_br_list.append(rect)
         print(tl_br_list)
         sorted(tl_br_list, key=(lambda x: x[7]))
@@ -74,7 +75,7 @@ def get_up_down_dim(ocr_rect_num):
             br_y_second_max = tl_br_list[0][7]
             br_y_min = tl_br_list[0][7]
             br_y_second_min = tl_br_list[0][7]
-
+        
         if br_y_max - br_y_second_max > 5:
             br_y_max = br_y_second_max
         if br_y_second_min - br_y_min > 5:
@@ -135,7 +136,7 @@ def get_up_down_center_point(dim_up_lists_sorted, dim_down_lists_sorted):
             up_tmp_list.append(int(core_up_y))
             up_tmp_list.append(dim_up_list[8])
             core_up_list.append(up_tmp_list)
-
+    
     for idx in range(len(dim_down_lists_sorted)):
         down_tmp_list = []
         dim_down_list = dim_down_lists_sorted[idx]
@@ -175,7 +176,8 @@ def get_boundaryDirection_yValue_ocrPoints(img_path, ocr_result_bboxs):
     dim_up, dim_down = get_up_down_dim(ocr_rect_num)
     dim_up_lists_sorted, dim_down_lists_sorted = get_up_down_sort_list(dim_up, dim_down)
     core_up_list, core_down_list, core_up_x_list, core_up_y_list, core_down_x_list, core_down_y_list = get_up_down_center_point(
-        dim_up_lists_sorted, dim_down_lists_sorted)
+        dim_up_lists_sorted, dim_down_lists_sorted
+    )
     cropped_img, y_value, boundary_idx = get_cropped_img(img_path, core_up_list, core_down_list)
     # cv2.imwrite("check_result/[boundary]"+img.split('.')[0]+"_boundary_"+str(boundary_idx)+".jpg", cropped_img)
     ocr_point_list = []
@@ -220,7 +222,7 @@ def get_corner_points(image, bboxs):
         up_center_y = int((max(tmp_up) + min(tmp_up)) / 2)
     if len(tmp_dwon) > 0:
         down_center_y = int((max(tmp_dwon) + min(tmp_dwon)) / 2)
-
+    
     for item in corner_point_list:
         tmp_corner_x.append(int(item[0]))
         if np.abs(max_y - min_y) > 10:
@@ -245,7 +247,10 @@ def closest(mylist, number):
 
 
 def get_ocr_ratio(boundary_idx, ocr_point_list, corner_point_map, y_value):
-    print("boundary_idx:", boundary_idx, " ocr_points:", ocr_point_list, " corner_points:", corner_point_map," y_value:",y_value)
+    print(
+        "boundary_idx:", boundary_idx, " ocr_points:", ocr_point_list, " corner_points:", corner_point_map, " y_value:",
+        y_value
+    )
     ocr_corner_list = []
     corner_x_list = sorted(list(corner_point_map.keys()))
     corner_y_list = list(set(corner_point_map.values()))
@@ -259,15 +264,19 @@ def get_ocr_ratio(boundary_idx, ocr_point_list, corner_point_map, y_value):
             y_tmp = corner_y_list[closest_y_index] + y_value
             if np.abs(y_tmp - corner_y) < 10:
                 closest_left_index = closest(corner_x_list, ocr_x)
-                if closest_left_index + 1 < len(corner_x_list) and corner_x_list[closest_left_index] <= corner_x <= corner_x_list[closest_left_index + 1]:
+                if closest_left_index + 1 < len(corner_x_list) and corner_x_list[closest_left_index] <= corner_x <= \
+                    corner_x_list[closest_left_index + 1]:
                     if np.abs(corner_x_list[closest_left_index] - corner_x_list[closest_left_index + 1]) < 5 or np.abs(
-                            corner_x_list[closest_left_index] - ocr_x) < 5 or np.abs(
-                            corner_x_list[closest_left_index + 1] - ocr_x) < 5:
+                        corner_x_list[closest_left_index] - ocr_x
+                    ) < 5 or np.abs(
+                        corner_x_list[closest_left_index + 1] - ocr_x
+                    ) < 5:
                         continue
                     else:
                         ocr_corner_list.append(
                             [ocr_x, corner_x_list[closest_left_index], corner_x_list[closest_left_index + 1], corner_y,
-                             ocr_value])
+                                ocr_value]
+                        )
                         break
     # print("ocr_corner_list:", ocr_corner_list)
     up_ratios = []

@@ -34,6 +34,7 @@ class Model(nn.Module):
         if self.options.method_type == 1:
             return torch.sigmoid(segmentation),
         else:
+            # 这个看起来是将wall和opening角点给二分类了,分成3个,第一部分是关键点,第二部分是icon,第三部分是room的语义分割
             return (
                 torch.sigmoid(segmentation[:, :, :, :NUM_CORNERS]),
                 segmentation[:, :, :, NUM_CORNERS:NUM_CORNERS + NUM_ICONS + 2],

@@ -173,6 +173,7 @@ class MyModelv4(nn.Module):
         #     p2, size=(feature1.shape[2], feature1.shape[3]), mode='bilinear'
         # )
         # p1 = self.smooth(p1)
+        
         # FPN缺陷
         p3 = self.smooth_3(self.latlayer_3(self.se_3(feature3)))
         p2 = self.latlayer_2(self.se_2(feature2)) + F.interpolate(
@@ -216,6 +217,10 @@ class MyModelv4(nn.Module):
 
 
 class MyModelv5(nn.Module):
+    """
+    本版模型在FPN的横向连接中加入了SE
+    """
+    
     def __init__(self, options, backbone='convnext_base.fb_in22k', pretrained_cfg_overlay_path=None):
         super().__init__()
         
@@ -244,7 +249,7 @@ class MyModelv5(nn.Module):
         self._init_weights()
     
     def _init_weights(self):
-        # nn.init.kaiming_normal_(self.feature_conv.conv.weight, mode='fan_out', nonlinearity='relu')
+        # 初始化权重, kaiming初始化,mode全连接通常用fan_int,其他都用fanout,
         nn.init.kaiming_normal_(self.segmentation_pred.weight, mode='fan_out', nonlinearity='relu')
         nn.init.kaiming_normal_(self.smooth_1.weight, mode='fan_out', nonlinearity='relu')
         nn.init.kaiming_normal_(self.smooth_2.weight, mode='fan_out', nonlinearity='relu')
@@ -299,6 +304,118 @@ class MyModelv5(nn.Module):
         feat = self.feature_conv(fpn_out)
         segmentation_out = self.segmentation_pred(feat)
         heatmap = F.interpolate(segmentation_out, size=(H, W), mode="bilinear")  # 上采样到正常图片大小
+        segmentation = heatmap.transpose(1, 2).transpose(2, 3).contiguous()
+        if self.options.method_type == 1:
+            return torch.sigmoid(segmentation),
+        
+        else:
+            return (
+                torch.sigmoid(segmentation[:, :, :, :NUM_CORNERS]),
+                segmentation[:, :, :, NUM_CORNERS:NUM_CORNERS + NUM_ICONS + 2],
+                segmentation[:, :, :, -(NUM_ROOMS + 2):]
+            )
+        # extract_feature = self.extractor(feature)
+        # channel_resize_out = self.feature_conv(extract_feature)  # 512 16 16
+        #
+        # fpn_out = self.fpn(channel_resize_out)
+        # channel_resize_out = self.feature_conv(fpn_out)  # 继续降维
+        # segmentation_out = self.segmentation_pred(channel_resize_out)
+        #
+        # heatmap = F.interpolate(segmentation_out, size=(H, W), mode="bilinear")  # 上采样到正常图片大小
+        # segmentation = heatmap.transpose(1, 2).transpose(2, 3).contiguous()
+        # return torch.sigmoid(segmentation),
+
+
+class MyModelv6(nn.Module):
+    """
+    本版模型优化了上采样大小
+    """
+    
+    def __init__(self, options, backbone='convnext_base.fb_in22k', pretrained_cfg_overlay_path=None):
+        super().__init__()
+        
+        self.options = options
+        self.ConvNeXt = timm.create_model(
+            backbone,
+            pretrained=True,
+            pretrained_cfg_overlay=dict(
+                file='./checkpoint/convnext_base_22k_224.pth' if pretrained_cfg_overlay_path is None else pretrained_cfg_overlay_path
+            ),
+            features_only=True
+        )
+        self.feature_conv = ConvBlock(1024, 512)
+        self.segmentation_pred = nn.Conv2d(512, NUM_CORNERS, kernel_size=1)
+        
+        self.latlayer_1 = nn.Conv2d(256, 256, kernel_size=1)
+        self.latlayer_2 = nn.Conv2d(512, 256, kernel_size=1)
+        self.latlayer_3 = nn.Conv2d(1024, 256, kernel_size=1)
+        self.smooth_1 = nn.Conv2d(256, 256, kernel_size=3, padding=1)
+        self.smooth_2 = nn.Conv2d(256, 256, kernel_size=3, padding=1)
+        self.smooth_3 = nn.Conv2d(256, 256, kernel_size=3, padding=1)
+        self.se_1 = SE(256)
+        self.se_2 = SE(512)
+        self.se_3 = SE(1024)
+        
+        self._init_weights()
+    
+    def _init_weights(self):
+        # 初始化权重, kaiming初始化,mode全连接通常用fan_int,其他都用fanout,
+        nn.init.kaiming_normal_(self.segmentation_pred.weight, mode='fan_out', nonlinearity='relu')
+        nn.init.kaiming_normal_(self.smooth_1.weight, mode='fan_out', nonlinearity='relu')
+        nn.init.kaiming_normal_(self.smooth_2.weight, mode='fan_out', nonlinearity='relu')
+        nn.init.kaiming_normal_(self.smooth_3.weight, mode='fan_out', nonlinearity='relu')
+        nn.init.kaiming_normal_(self.latlayer_1.weight, mode='fan_out', nonlinearity='relu')
+        nn.init.kaiming_normal_(self.latlayer_2.weight, mode='fan_out', nonlinearity='relu')
+        nn.init.kaiming_normal_(self.latlayer_3.weight, mode='fan_out', nonlinearity='relu')
+    
+    def forward(self, x):
+        b, c, H, W = x.shape
+        # backbone
+        features = self.ConvNeXt(x)
+        
+        # FPN
+        features = features[1:]
+        feature1 = features[0]
+        # print(feature1.shape)
+        feature2 = features[1]
+        # print(feature2.shape)
+        feature3 = features[2]
+        # print(feature3.shape)
+        # p3 = self.smooth(self.latlayer_3(self.se_3(feature3)))
+        # p2 = self.latlayer_2(self.se_2(feature2)) + F.interpolate(
+        #     p3, size=(feature2.shape[2], feature2.shape[3]), mode='bilinear'
+        # )
+        # p2 = self.smooth(p2)
+        # p1 = self.latlayer_1(self.se_1(feature1)) + F.interpolate(
+        #     p2, size=(feature1.shape[2], feature1.shape[3]), mode='bilinear'
+        # )
+        # p1 = self.smooth(p1)
+        
+        p3 = self.latlayer_3(self.se_3(feature3))
+        
+        p2 = self.latlayer_2(self.se_2(feature2)) + F.interpolate(
+            p3, size=(feature2.shape[2], feature2.shape[3]), mode='bilinear'
+        )
+        
+        p1 = self.latlayer_1(self.se_1(feature1)) + F.interpolate(
+            p2, size=(feature1.shape[2], feature1.shape[3]), mode='bilinear'
+        )
+        # 除上采样产生的混叠效应(aliasing effect)
+        p3_out = self.smooth_3(p3)
+        p2_out = self.smooth_2(p2)
+        p1_out = self.smooth_1(p1)
+        
+        resized_p3_out = F.interpolate(p3_out, size=(feature1.shape[2], feature1.shape[3]), mode='bilinear')
+        resized_p2_out = F.interpolate(p2_out, size=(feature1.shape[2], feature1.shape[3]), mode='bilinear')
+        
+        fpn_out = torch.cat([feature1, p1_out, resized_p2_out, resized_p3_out], dim=1)
+        
+        # feature conv and head
+        feat = self.feature_conv(fpn_out)
+        segmentation_out = self.segmentation_pred(feat)
+        heatmap = F.interpolate(
+            segmentation_out, size=(self.options.height, self.options.width), mode="bilinear"
+        )  # 上采样到正常图片大小
         segmentation = heatmap.transpose(1, 2).transpose(2, 3).contiguous()
         if self.options.method_type == 1:
             return torch.sigmoid(segmentation),

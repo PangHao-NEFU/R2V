@@ -531,6 +531,7 @@ class FloorplanDataset(Dataset):
                 pass
             continue
         
+        # 这就是groundTruth的heatmap
         cornerSegmentation = np.zeros((height, width, NUM_CORNERS), dtype=np.uint8)
         for corner in corner_gt:
             cornerSegmentation[min(max(corner[1], 0), height - 1), min(max(corner[0], 0), width - 1), corner[2] - 1] = 1
@@ -539,6 +540,8 @@ class FloorplanDataset(Dataset):
         image_copy = copy.deepcopy(image)
         # 图片归一化,cv2读出来的是bgr,深度学习
         image = (image.astype(np.float32) / 255 - 0.5).transpose((2, 0, 1))
+        
+        # heatmap的膨胀操作
         kernel = np.zeros((3, 3), dtype=np.uint8)
         kernel[1] = 1
         kernel[:, 1] = 1

@@ -38,6 +38,11 @@ def parse_args():
         default=1, type=int
     )
     parser.add_argument(
+        '--resotreEpoch', dest='restoreEpoch',
+        help='epoch to restore the model',
+        default=0, type=int
+    )
+    parser.add_argument(
         '--batchSize', dest='batchSize',
         help='batch size',
         default=16, type=int

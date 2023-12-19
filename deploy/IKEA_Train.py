@@ -13,7 +13,7 @@ from options import parse_args
 from model import Model
 from floorplan_dataset import FloorplanDataset
 from IP import reconstructFloorplan
-from convNext import MyModelv4
+from convNext import MyModelv5
 from multiprocessing import cpu_count
 
 
@@ -248,7 +248,7 @@ def main2(options):
         pass
     # traindata_dir = '/Users/hehao/Desktop/Henry/IKEA/Prometheus/IKEA_img2floorplan/models/datasets/'
     # traindata_dir = r"D:\DeepLearningDataset\SJJDataset1k(01)\traindata"  # 本地
-    traindata_dir = r"/root/autodl-tmp/traindata2k"  # 线上服务器
+    traindata_dir = r"/root/autodl-tmp/traindata2k"  # 线上服务器训练集路径
     
     dataset = FloorplanDataset(options, 'train', traindata_dir, random=True)
     dataloader = DataLoader(dataset, batch_size=options.batchSize, shuffle=True, num_workers=4)  # 这里worker不能调太大,尤其是服务器
@@ -260,12 +260,12 @@ def main2(options):
     
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     # model = Model(options)
-    model = MyModelv4(options).to(device)
+    model = MyModelv5(options).to(device)
     # model.cuda()
     model.train()
     
     # tensorboard
-    tbwriter = SummaryWriter(os.path.join(options.logDir, 'modelv5'))
+    tbwriter = SummaryWriter(os.path.join(options.logDir, 'modelv6'))
     
     if options.gpuFlag == 1:
         if not torch.cuda.is_available():
@@ -277,23 +277,41 @@ def main2(options):
         exit(1)
     
     if options.restore == 1:  # 1表示继续训练
-        print('restore')
-        checkpoint_file_path = os.path.join(options.save_checkpoint_dir, 'checkpoint.pth')  # 继续训练的话要改
-        model.load_state_dict(torch.load(checkpoint_file_path, map_location='cpu'))
-        pass
+        print('restore model checkpoint...')
+        try:
+            checkpoint_file_path = os.path.join(
+                options.save_checkpoint_dir, f'checkpoint_new{options.restoreEpoch}.pth'
+            )  # 继续训练的话要改
+            model.load_state_dict(torch.load(checkpoint_file_path, map_location='cpu'))
+            print('checkpoint load success!')
+        except FileNotFoundError:
+            print('no checkpoint found')
+            pass
     
-    if options.showGraphInTensorboard == 1:
+    if options.showGraphInTensorboard == 1 and options.restore != 1:
         tbwriter.add_graph(model, torch.rand(1, 3, 512, 512).to(device))
     
     optimizer = torch.optim.Adam(model.parameters(), lr=options.LR)
     
     scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=30, gamma=0.5)
-    if options.restore == 1 and os.path.exists(options.save_checkpoint_dir + '/optim.pth'):
-        optimizer.load_state_dict(torch.load(options.save_checkpoint_dir + '/optim.pth'))
-        pass
+    
+    # 加载优化器保存
+    if options.restore == 1 and os.path.exists(
+        
+        os.path.join(options.save_checkpoint_dir, f'./optim_new{options.restoreEpoch}.pth')
+    ):
+        print('start load optimizer data...')
+        try:
+            optimizer.load_state_dict(
+                torch.load(os.path.join(options.save_checkpoint_dir, f'./optim_new{options.restoreEpoch}.pth'))
+            )
+            print('load optimizer data success!')
+        except Exception:
+            print('load optimizer data failed!')
+            pass
     
     print('start training~~~~')
-    for epoch in range(options.numEpochs):
+    for epoch in range(options.restoreEpoch, options.numEpochs):
         try:
             print(f"current epoch:{epoch}")
             epoch_losses = []
@@ -312,7 +330,7 @@ def main2(options):
                     corner_pred, = model(images)
                     
                     # 3.计算损失
-                    corner_loss = torch.nn.functional.binary_cross_entropy(corner_pred, corner_gt)  # 交叉熵损失函数
+                    corner_loss = torch.nn.functional.binary_cross_entropy(corner_pred, corner_gt)  # 二元交叉熵损失函数
                     # a = True if epoch % 10 == 0 else False
                     # if epoch != 0 and a:
                     #     check_predict_data(options, corner_pred, corner_gt)
@@ -346,9 +364,11 @@ def main2(options):
                 except Exception as e:
                     print(f"train error!!! message:{e}")
             
+            # 优化器学习率更新
             scheduler.step()
             print('loss', np.array(epoch_losses).mean(0))
             tbwriter.add_scalar('loss', np.array(epoch_losses).mean(0), epoch)
+            
             if epoch % 10 == 0:  # 每10轮保存模型
                 print(f'save model_new{epoch}')
                 torch.save(
@@ -357,7 +377,6 @@ def main2(options):
                 torch.save(optimizer.state_dict(), os.path.join(options.save_checkpoint_dir, f'./optim_new{epoch}.pth'))
                 pass
             
-            # testOneEpoch(options, model, dataset_test)
             continue
         finally:
             tbwriter.close()
@@ -368,21 +387,24 @@ if __name__ == '__main__':
     args = parse_args()
     
     args.keyname = ''
-    args.restore = 1  # restore是0表示从头开始训练，1表示从上一次训练的模型继续训练
     cur_folder_path = os.path.dirname(os.path.abspath(__file__))
     checkpoint_folder_path = os.path.join(cur_folder_path, "checkpoint")
     args.checkpoint_dir = 'checkpoint/'
     args.checkpoint_dir = checkpoint_folder_path
-    args.save_checkpoint_dir = "/root/autodl-fs/modelv5"  # 这里服务器得改保存权重位置
+    args.save_checkpoint_dir = "/root/autodl-fs/modelv6"  # 这里服务器得改保存权重位置
     args.test_dir = 'test/' + args.keyname
     args.model_type = 1
     args.batchSize = 4
     args.outputWidth = 512
     args.outputHeight = 512
-    args.restore = 0
+    
     args.numEpochs = 300
-    args.logDir = 'log/'
+    args.logDir = 'log/modelv6'
     args.showGraphInTensorboard = 1
     logging.info('keyname=%s task=%s started' % (args.keyname, args.task))
+    
+    # restore恢复训练
+    args.restore = 1  # restore是0表示从头开始训练，1表示从上一次训练的模型继续训练
+    args.restoreEpoch = 150
     
     main2(args)
