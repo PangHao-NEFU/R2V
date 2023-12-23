@@ -21,11 +21,19 @@ class ImageTransform(object):
         super(ImageTransform, self).__init__()
     
     def transform_image_data(self, img_data):
+        """
+        保持图片宽高比进行resize并在空白部分填充白色
+        Args:
+            img_data: 图片numpy
+
+        Returns:
+
+        """
         if img_data is None:
             return None
         image = copy.copy(img_data)
         max_size = max(self.option.width, self.option.height)
-        # X, Y 图片宽高
+        # X, Y 输入图片的宽高
         self.image_width = image.shape[1]
         self.image_height = image.shape[0]
         

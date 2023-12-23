@@ -1339,24 +1339,26 @@ class Builder(object):
     ):
         try:
             # copy the data since the heat map img will be changed here.
-            heat_map_img_mask = copy.deepcopy(heat_map_img)
+            heat_map_img_mask = copy.deepcopy(heat_map_img)  # 这就是heatmap
             wall_points = []
             
             for pointIndex in range(max_target_points_number):
-                index = np.argmax(heat_map_img_mask)
+                index = np.argmax(heat_map_img_mask)  # 通过argmax找最大值
                 # get the coordinate of the x, y
                 y, x = np.unravel_index(index, heat_map_img_mask.shape)
+                
                 # filter the noise.
-                cur_max_value = heat_map_img_mask[y, x]
+                cur_max_value = heat_map_img_mask[y, x]  # 当前最大值点
                 if junction_class == 0 and junction_type_category == 0:
                     # a=1
-                    if cur_max_value <= 0.5:  # 这个阈值受斜墙与直墙corner的识别结果
+                    if cur_max_value <= heat_map_threshold:  # 这个阈值受斜墙与直墙corner的识别结果
                         break
-                elif cur_max_value <= 0.5:
+                elif cur_max_value <= heat_map_threshold:
                     break
                 
                 # the pixels.
                 self.tmp_pixel_list = []
+                # 非极大值抑制
                 self._suppress_wall_point_neighbors(heat_map_img_mask, x, y, self.heat_map_wall_connect_threshold)
                 
                 # calculate the heatmap center as the point position.
@@ -1390,7 +1392,7 @@ class Builder(object):
             heat_map_img_mask[y][x] = -1
             self.tmp_pixel_list.append([x, y])
             
-            deltas = [(-1, 0), (1, 0), (0, -1), (0, 1)]
+            deltas = [(-1, 0), (1, 0), (0, -1), (0, 1)]  # 四个方向
             for delta in deltas:
                 neighbor_x = x + delta[0]
                 neighbor_y = y + delta[1]

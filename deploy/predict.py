@@ -90,6 +90,7 @@ class Predict(object):
             # 1.1 pre-process the image.
             image = (image.astype(np.float32) / 255 - 0.5)
             
+            # debug
             if self.options.debugFlag == 1:
                 self.debug_util_obj.save_floorplan_imag_with_name(
                     image * 255, res_folder_path=res_folder_path,
@@ -110,6 +111,8 @@ class Predict(object):
             corner_base_pred = self.model_base(image_tensor)  # 基本模型
             
             print("predict model cost {0}".format(time.time() - start))
+            
+            # debug
             if self.options.debugFlag == 1:
                 self.debug_util_obj.save_corner_heatmaps_img(
                     corner_pred[0],
@@ -156,7 +159,7 @@ class Predict(object):
     
         """
         try:
-            # 1. calculate the heatmap.
+            # 1. calculate the heatmap.在self.all_heatmap_data中有
             all_heatmap = self.generate_heatmap_data(img_file_path, type)
             
             start = time.time()
@@ -204,7 +207,7 @@ class Predict(object):
         json_res = self._dump_room_info_header(-1, [], 0)
         start = time.time()
         try:
-            res = self.scale_model.ikea_ocr(image)
+            res = self.scale_model.ikea_ocr(image)  # ocr
             cropped_img, boundary_idx, y_value, ocr_point_list = get_boundaryDirection_yValue_ocrPoints(
                 image,
                 res

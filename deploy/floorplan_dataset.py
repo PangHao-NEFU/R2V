@@ -1,13 +1,15 @@
 import copy
 
 from torch.utils.data import Dataset
-
+from torch.utils.data import DataLoader
 import time
 
+from options import parse_args
 from utils import *
 from skimage import measure
 import cv2
 import os
+import logging
 
 
 def calcLineDirection(line, threshold=5):
@@ -132,6 +134,7 @@ def lines2Corners(lines, gap):
         lineConnections.append({})
         continue
     
+    # 墙体类别
     connectionCornerMap = {}
     connectionCornerMap[(6, 1)] = 0  # 上钩
     connectionCornerMap[(6, 2)] = 1  # 右钩
@@ -413,6 +416,7 @@ class FloorplanDataset(Dataset):
             image, transformation = augmentSample(self.options, image, background_colors, split=self.split)
             pass
         
+        # corner1代表角点类别
         corners = [(transformPoint(transformation, corner[0]), corner[1]) for corner in corners]
         walls = [[transformPoint(transformation, wall[c]) for c in range(2)] for wall in walls]
         openings = [[transformPoint(transformation, opening[0]), transformPoint(transformation, opening[1]), opening[2]]
@@ -432,22 +436,22 @@ class FloorplanDataset(Dataset):
             continue
         
         rooms = measure.label(roomSegmentation == 0, background=0)
-        # 墙
+        # 墙,corner[1]的范围应该是1到13
         corner_gt = []
         for corner in corners:
             corner_gt.append((corner[0][0], corner[0][1], corner[1] + 1))
             continue
-        # 窗
+        # 窗 目前看来是14到17
         openingCornerMap = [[3, 1], [0, 2]]
         for opening in openings:
-            direction = calcLineDirection(opening)
+            direction = calcLineDirection(opening)  # # 0 水平；1 垂直;
             opening_type = int(opening[2])
             for cornerIndex, corner in enumerate(opening):
                 if cornerIndex > 1:
                     break
                 corner_gt.append(
                     (int(round(corner[0])), int(round(corner[1])),
-                    14 + 4 * opening_type + openingCornerMap[direction][cornerIndex])
+                    14 + 4 * opening_type + openingCornerMap[direction][cornerIndex])  # 目前来说opening_type应该是1
                 )
                 continue
             continue
@@ -455,8 +459,10 @@ class FloorplanDataset(Dataset):
         for door in doors:
             # direction 水平还是竖直
             direction = calcLineDirection(door)
+            
             # 1. 单开门 2.双开门 3.门窗合体，类似单开门 4. 双移门
             # 单开门, 双开门，门窗合体的点各有八种情况。(4 * 2, 2表示是在门direction是在墙左右，还是在墙上下。)
+            # door_direction对应门相对于墙的位置,也就是标注数据door的最后一项
             # 双移门： 4种情况， 不需要区分门的direction是否在墙左右还是墙上下。
             door_type = int(door[2]) - 1
             door_direction = int(door[3])
@@ -564,4 +570,29 @@ class FloorplanDataset(Dataset):
 
 
 if __name__ == '__main__':
-    pass
+    args = parse_args()
+    
+    args.keyname = ''
+    cur_folder_path = os.path.dirname(os.path.abspath(__file__))
+    checkpoint_folder_path = os.path.join(cur_folder_path, "checkpoint")
+    args.checkpoint_dir = 'checkpoint/'
+    args.checkpoint_dir = checkpoint_folder_path
+    args.save_checkpoint_dir = "/root/autodl-fs/modelv6"  # 这里服务器得改保存权重位置
+    args.test_dir = 'test/' + args.keyname
+    args.model_type = 1
+    args.batchSize = 4
+    args.outputWidth = 512
+    args.outputHeight = 512
+    
+    args.numEpochs = 300
+    args.logDir = 'log/modelv6'
+    args.showGraphInTensorboard = 1
+    logging.info('keyname=%s task=%s started' % (args.keyname, args.task))
+    
+    # restore恢复训练
+    args.restore = 1  # restore是0表示从头开始训练，1表示从上一次训练的模型继续训练
+    args.restoreEpoch = 150
+    
+    traindata_dir = r"/root/autodl-tmp/traindata2k"  # 训练集路径
+    dataset = FloorplanDataset(args, 'train', traindata_dir, random=True)
+    dataloader = DataLoader(dataset, batch_size=args.batchSize, shuffle=True, num_workers=4)
